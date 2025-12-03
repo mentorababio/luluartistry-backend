@@ -75,6 +75,17 @@ app.use('/api/orders', orderRoutes);
 app.use('/api/payment', paymentRoutes);
 app.use('/api/bookings', bookingRoutes);
 
+// ADD THIS RIGHT AFTER app.use('/api/bookings', bookingRoutes);
+
+// Test route for payment debugging
+app.get('/api/payment/debug', (req, res) => {
+  res.json({
+    success: true,
+    message: 'Direct payment route works!',
+    timestamp: new Date().toISOString()
+  });
+});
+
 // Health check route
 app.get('/api/health', (req, res) => {
   res.status(200).json({
