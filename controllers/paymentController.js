@@ -174,7 +174,7 @@ async function handleOrderPayment(orderId, paymentData) {
 }
 
 // Helper function to handle booking payment
-async function handleBookingPayment(bookingId, paymentData) {{
+async function handleBookingPayment(bookingId, paymentData) {
   try {
     const booking = await Booking.findById(bookingId);
 
@@ -251,4 +251,136 @@ exports.initiateRefund = async (req, res, next) => {
     console.error('Refund error:', error.response?.data || error.message);
     next(new ErrorResponse('Refund initiation failed', 500));
   }
-}};
+};
+
+// @desc    Verify Paystack payment and update order
+// @route   POST /api/orders/:id/verify-payment
+// @access  Private
+exports.verifyPaystackPayment = async (req, res, next) => {
+  try {
+    const { reference } = req.body;
+
+    if (!reference) {
+      return next(new ErrorResponse('Payment reference is required', 400));
+    }
+
+    // Find order
+    const order = await Order.findById(req.params.id);
+
+    if (!order) {
+      return next(new ErrorResponse('Order not found', 404));
+    }
+
+    // Verify user owns the order
+    if (order.user && order.user.toString() !== req.user.id) {
+      return next(new ErrorResponse('Not authorized', 403));
+    }
+
+    // Verify payment with Paystack
+    const response = await axios.get(
+      `https://api.paystack.co/transaction/verify/${reference}`,
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`
+        }
+      }
+    );
+
+    const paymentData = response.data.data;
+
+    if (paymentData.status === 'success') {
+      // Payment successful - update order
+      order.payment.status = 'paid';
+      order.payment.reference = reference;
+      order.payment.paidAt = Date.now();
+      order.paymentStatus = 'paid';
+      order.orderStatus = 'processing';
+
+      await order.save();
+
+      res.status(200).json({
+        success: true,
+        data: order,
+        message: 'Payment verified successfully'
+      });
+    } else {
+      // Payment failed
+      res.status(400).json({
+        success: false,
+        message: 'Payment verification failed'
+      });
+    }
+
+  } catch (error) {
+    console.error('Payment verification error:', error);
+    next(error);
+  }
+};
+
+// @desc    Confirm bank transfer payment (Admin only)
+// @route   PUT /api/payment/confirm-bank-transfer/:orderId
+// @access  Private/Admin
+exports.confirmBankTransferPayment = async (req, res, next) => {
+  try {
+    const { transactionReference, notes, amountReceived } = req.body;
+    const { orderId } = req.params;
+
+    const order = await Order.findById(orderId);
+
+    if (!order) {
+      return next(new ErrorResponse('Order not found', 404));
+    }
+
+    if (order.payment.method !== 'bank_transfer') {
+      return next(new ErrorResponse('This order does not use bank transfer', 400));
+    }
+
+    if (order.payment.status === 'paid') {
+      return next(new ErrorResponse('Payment already confirmed', 400));
+    }
+
+    // Verify amount if provided
+    if (amountReceived && amountReceived < order.pricing.total) {
+      return next(new ErrorResponse('Amount received is less than order total', 400));
+    }
+
+    // Update order
+    order.payment.status = 'paid';
+    order.payment.reference = transactionReference || `BANK-${Date.now()}`;
+    order.payment.paidAt = Date.now();
+    order.orderStatus = 'processing';
+    
+    // Add to status history if available
+    if (order.statusHistory) {
+      order.statusHistory.push({
+        status: 'processing',
+        note: `Bank transfer confirmed by admin. ${notes || ''}`,
+        updatedAt: new Date()
+      });
+    }
+
+    await order.save();
+
+    // Populate order details
+    await order.populate('items.product', 'name images');
+
+    // Send confirmation email
+    if (order.customerInfo.email) {
+      await sendEmail({
+        email: order.customerInfo.email,
+        subject: `Payment Confirmed - Order ${order.orderNumber || order._id}`,
+        html: orderConfirmationEmail(order)
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: order,
+      message: 'Bank transfer payment confirmed successfully'
+    });
+
+  } catch (error) {
+    console.error('Bank transfer confirmation error:', error);
+    next(error);
+  }
+};
