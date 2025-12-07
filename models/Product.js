@@ -1,7 +1,39 @@
 const mongoose = require('mongoose');
 const slugify = require('slugify');
 
+const VariantSchema = new mongoose.Schema({
+  // For products with variants like "Length", "Color", "Volume", "Curl Type", etc.
+  type: {
+    type: String,
+    required: true, // e.g., "Length", "Color", "Volume", "Curl"
+    enum: ['Length', 'Color', 'Volume', 'Curl', 'Size', 'Weight', 'Other']
+  },
+  value: {
+    type: String,
+    required: true // e.g., "5mm", "Red", "0.07", "J Curl"
+  },
+  // SKU should be unique per variant
+  sku: {
+    type: String,
+    unique: true,
+    sparse: true
+  },
+  // Stock for this specific variant
+  stock: {
+    type: Number,
+    required: true,
+    min: [0, 'Stock cannot be negative'],
+    default: 0
+  },
+  // Price adjustment if this variant costs more/less
+  priceAdjustment: {
+    type: Number,
+    default: 0 // Can be positive or negative
+  }
+}, { _id: true });
+
 const ProductSchema = new mongoose.Schema({
+  // Basic Product Info
   name: {
     type: String,
     required: [true, 'Please provide product name'],
@@ -10,13 +42,16 @@ const ProductSchema = new mongoose.Schema({
   },
   slug: {
     type: String,
-    unique: true
+    unique: true,
+    sparse: true
   },
   description: {
     type: String,
     required: [true, 'Please provide product description'],
     maxlength: [2000, 'Description cannot be more than 2000 characters']
   },
+
+  // Pricing
   price: {
     type: Number,
     required: [true, 'Please provide product price'],
@@ -26,11 +61,20 @@ const ProductSchema = new mongoose.Schema({
     type: Number, // Original price for showing discounts
     min: [0, 'Compare price cannot be negative']
   },
+
+  // Category & Organization
   category: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Category',
     required: [true, 'Please provide product category']
   },
+  subcategory: String, // e.g., "Lashes", "Adhesive", "Tools"
+  tags: [{
+    type: String,
+    trim: true
+  }],
+
+  // Product Images
   images: [{
     url: {
       type: String,
@@ -39,27 +83,11 @@ const ProductSchema = new mongoose.Schema({
     publicId: String,
     alt: String
   }],
-  variants: [{
-    name: {
-      type: String,
-      required: true // e.g., "Size", "Color", "Length"
-    },
-    value: {
-      type: String,
-      required: true // e.g., "8mm", "Black", "Medium"
-    },
-    priceAdjustment: {
-      type: Number,
-      default: 0 // Additional price for this variant
-    },
-    stock: {
-      type: Number,
-      required: true,
-      min: 0,
-      default: 0
-    },
-    sku: String // Unique identifier for this variant
-  }],
+
+  // Variants - For products with variations (Length, Color, Volume, Curl, etc.)
+  variants: [VariantSchema],
+
+  // Stock Management
   stock: {
     type: Number,
     required: [true, 'Please provide stock quantity'],
@@ -70,18 +98,33 @@ const ProductSchema = new mongoose.Schema({
     type: Number,
     default: 5 // Alert when stock goes below this
   },
-  tags: [{
-    type: String,
-    trim: true
+
+  // Product Details & Specifications
+  specifications: [{
+    key: String,
+    value: String
   }],
+
+  // SEO
+  seo: {
+    metaTitle: String,
+    metaDescription: String,
+    metaKeywords: [String]
+  },
+
+  // Status & Visibility
   isFeatured: {
     type: Boolean,
-    default: false
+    default: false,
+    index: true
   },
   isActive: {
     type: Boolean,
-    default: true
+    default: true,
+    index: true
   },
+
+  // Reviews & Ratings
   averageRating: {
     type: Number,
     min: [0, 'Rating must be at least 0'],
@@ -92,24 +135,19 @@ const ProductSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
+
+  // Analytics
   totalSales: {
     type: Number,
     default: 0
-  },
-  specifications: [{
-    key: String,
-    value: String
-  }],
-  seo: {
-    metaTitle: String,
-    metaDescription: String,
-    metaKeywords: [String]
   }
 }, {
   timestamps: true,
   toJSON: { virtuals: true },
   toObject: { virtuals: true }
 });
+
+// ============ PRE-SAVE HOOKS ============
 
 // Create slug before saving
 ProductSchema.pre('save', function(next) {
@@ -118,6 +156,17 @@ ProductSchema.pre('save', function(next) {
   }
   next();
 });
+
+// Calculate total stock from variants if they exist
+ProductSchema.pre('save', function(next) {
+  if (this.variants && this.variants.length > 0) {
+    // Sum up stock from all variants
+    this.stock = this.variants.reduce((total, variant) => total + variant.stock, 0);
+  }
+  next();
+});
+
+// ============ VIRTUALS ============
 
 // Virtual for checking if product is in stock
 ProductSchema.virtual('inStock').get(function() {
@@ -145,9 +194,17 @@ ProductSchema.virtual('reviews', {
   justOne: false
 });
 
-// Index for search optimization
+// ============ INDEXES ============
+
+// Search indexes
 ProductSchema.index({ name: 'text', description: 'text', tags: 'text' });
-ProductSchema.index({ category: 1, price: 1 });
+
+// Query optimization indexes
+ProductSchema.index({ category: 1 });
+ProductSchema.index({ price: 1 });
 ProductSchema.index({ isFeatured: 1, isActive: 1 });
+ProductSchema.index({ createdAt: -1 });
+// Note: slug unique index already created by unique: true in schema
+// Note: variants.sku unique index already created by unique: true in variant schema
 
 module.exports = mongoose.model('Product', ProductSchema);

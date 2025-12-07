@@ -136,10 +136,10 @@ EnrollmentSchema.virtual('eligibleForCertificate').get(function() {
 });
 
 // Index for efficient queries
+// Note: enrollmentNumber unique index already created by unique: true in schema
 EnrollmentSchema.index({ student: 1, createdAt: -1 });
 EnrollmentSchema.index({ course: 1, startDate: 1 });
 EnrollmentSchema.index({ status: 1, startDate: 1 });
-EnrollmentSchema.index({ enrollmentNumber: 1 });
 
 // Update course total enrollments after save
 EnrollmentSchema.post('save', async function() {

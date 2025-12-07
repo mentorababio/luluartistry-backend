@@ -1,130 +1,98 @@
 // ============================================
-// COPY EACH SECTION INTO SEPARATE FILES
+// REFERENCE DOCUMENTATION - DO NOT USE DIRECTLY
+// This file documents all available routes
+// Copy individual route definitions to separate files
 // ============================================
 
-// ========== routes/categoryRoutes.js ==========
-const express = require('express');
-const { protect, authorize } = require('../middleware/auth');
-const router = express.Router();
+/**
+ * CATEGORY ROUTES
+ * Base URL: /api/categories
+ * GET    /api/categories                  - Get all categories
+ * GET    /api/categories/:id              - Get category by ID
+ * POST   /api/categories                  - Create category (Admin only)
+ * PUT    /api/categories/:id              - Update category (Admin only)
+ * DELETE /api/categories/:id              - Delete category (Admin only)
+ */
 
-// Import controller (you'll create this)
-// const { getCategories, getCategory, createCategory, updateCategory, deleteCategory } = require('../controllers/categoryController');
+/**
+ * SERVICE ROUTES
+ * Base URL: /api/services
+ * GET    /api/services                    - Get all services
+ * GET    /api/services/:id                - Get service by ID
+ * GET    /api/services/category/:category - Get services by category
+ * POST   /api/services                    - Create service (Admin only)
+ * PUT    /api/services/:id                - Update service (Admin only)
+ * DELETE /api/services/:id                - Delete service (Admin only)
+ */
 
-router.route('/').get(getCategories).post(protect, authorize('admin'), createCategory);
-router.route('/:id').get(getCategory).put(protect, authorize('admin'), updateCategory).delete(protect, authorize('admin'), deleteCategory);
+/**
+ * COURSE ROUTES
+ * Base URL: /api/courses
+ * GET    /api/courses                     - Get all courses
+ * GET    /api/courses/:id                 - Get course by ID
+ * GET    /api/courses/category/:category  - Get courses by category
+ * POST   /api/courses                     - Create course (Admin only)
+ * PUT    /api/courses/:id                 - Update course (Admin only)
+ * DELETE /api/courses/:id                 - Delete course (Admin only)
+ */
 
-module.exports = router;
+/**
+ * ENROLLMENT ROUTES
+ * Base URL: /api/enrollments
+ * GET    /api/enrollments                 - Get user enrollments (Authenticated)
+ * POST   /api/enrollments                 - Create enrollment (Authenticated)
+ * GET    /api/enrollments/admin/all       - Get all enrollments (Admin only)
+ * GET    /api/enrollments/:id             - Get enrollment by ID (Authenticated)
+ * PUT    /api/enrollments/:id/status      - Update enrollment status (Admin only)
+ * POST   /api/enrollments/:id/certificate - Issue certificate (Admin only)
+ */
 
-// ========== routes/serviceRoutes.js ==========
-const express = require('express');
-const { protect, authorize } = require('../middleware/auth');
-const router = express.Router();
+/**
+ * REVIEW ROUTES
+ * Base URL: /api/reviews
+ * GET    /api/reviews/product/:productId  - Get product reviews
+ * GET    /api/reviews/service/:serviceId  - Get service reviews
+ * GET    /api/reviews/course/:courseId    - Get course reviews
+ * POST   /api/reviews                     - Create review (Authenticated)
+ * PUT    /api/reviews/:id                 - Update review (Authenticated)
+ * DELETE /api/reviews/:id                 - Delete review (Authenticated)
+ * POST   /api/reviews/:id/helpful         - Mark review as helpful (Authenticated)
+ */
 
-// const { getServices, getService, getServicesByCategory, createService, updateService, deleteService } = require('../controllers/serviceController');
+/**
+ * WISHLIST ROUTES
+ * Base URL: /api/wishlist
+ * GET    /api/wishlist                    - Get user wishlist (Authenticated)
+ * POST   /api/wishlist/add                - Add to wishlist (Authenticated)
+ * DELETE /api/wishlist/remove/:productId  - Remove from wishlist (Authenticated)
+ */
 
-router.route('/').get(getServices).post(protect, authorize('admin'), createService);
-router.get('/category/:category', getServicesByCategory);
-router.route('/:id').get(getService).put(protect, authorize('admin'), updateService).delete(protect, authorize('admin'), deleteService);
+/**
+ * COUPON ROUTES
+ * Base URL: /api/coupons
+ * POST   /api/coupons/validate            - Validate coupon (Public)
+ * GET    /api/coupons                     - Get all coupons (Admin only)
+ * POST   /api/coupons                     - Create coupon (Admin only)
+ * GET    /api/coupons/:id                 - Get coupon by ID (Admin only)
+ * PUT    /api/coupons/:id                 - Update coupon (Admin only)
+ * DELETE /api/coupons/:id                 - Delete coupon (Admin only)
+ */
 
-module.exports = router;
+/**
+ * UPLOAD ROUTES
+ * Base URL: /api/upload
+ * POST   /api/upload/image                - Upload single image (Admin only)
+ * POST   /api/upload/images               - Upload multiple images (Admin only)
+ * DELETE /api/upload/image/:publicId      - Delete image (Admin only)
+ */
 
-// ========== routes/courseRoutes.js ==========
-const express = require('express');
-const { protect, authorize } = require('../middleware/auth');
-const router = express.Router();
-
-// const { getCourses, getCourse, getCoursesByCategory, createCourse, updateCourse, deleteCourse } = require('../controllers/courseController');
-
-router.route('/').get(getCourses).post(protect, authorize('admin'), createCourse);
-router.get('/category/:category', getCoursesByCategory);
-router.route('/:id').get(getCourse).put(protect, authorize('admin'), updateCourse).delete(protect, authorize('admin'), deleteCourse);
-
-module.exports = router;
-
-// ========== routes/enrollmentRoutes.js ==========
-const express = require('express');
-const { protect, authorize } = require('../middleware/auth');
-const router = express.Router();
-
-// const { createEnrollment, getEnrollments, getEnrollment, updateEnrollmentStatus, getAllEnrollments, issueCertificate } = require('../controllers/enrollmentController');
-
-router.route('/').get(protect, getEnrollments).post(protect, createEnrollment);
-router.get('/admin/all', protect, authorize('admin'), getAllEnrollments);
-router.get('/:id', protect, getEnrollment);
-router.put('/:id/status', protect, authorize('admin'), updateEnrollmentStatus);
-router.post('/:id/certificate', protect, authorize('admin'), issueCertificate);
-
-module.exports = router;
-
-// ========== routes/reviewRoutes.js ==========
-const express = require('express');
-const { protect } = require('../middleware/auth');
-const router = express.Router();
-
-// const { getReviews, createReview, updateReview, deleteReview, markHelpful } = require('../controllers/reviewController');
-
-router.get('/product/:productId', getReviews);
-router.get('/service/:serviceId', getReviews);
-router.get('/course/:courseId', getReviews);
-router.post('/', protect, createReview);
-router.route('/:id').put(protect, updateReview).delete(protect, deleteReview);
-router.post('/:id/helpful', protect, markHelpful);
-
-module.exports = router;
-
-// ========== routes/wishlistRoutes.js ==========
-const express = require('express');
-const { protect } = require('../middleware/auth');
-const router = express.Router();
-
-// const { getWishlist, addToWishlist, removeFromWishlist } = require('../controllers/wishlistController');
-
-router.get('/', protect, getWishlist);
-router.post('/add', protect, addToWishlist);
-router.delete('/remove/:productId', protect, removeFromWishlist);
-
-module.exports = router;
-
-// ========== routes/couponRoutes.js ==========
-const express = require('express');
-const { protect, authorize } = require('../middleware/auth');
-const router = express.Router();
-
-// const { getCoupons, getCoupon, createCoupon, updateCoupon, deleteCoupon, validateCoupon } = require('../controllers/couponController');
-
-router.post('/validate', validateCoupon);
-router.route('/').get(protect, authorize('admin'), getCoupons).post(protect, authorize('admin'), createCoupon);
-router.route('/:id').get(protect, authorize('admin'), getCoupon).put(protect, authorize('admin'), updateCoupon).delete(protect, authorize('admin'), deleteCoupon);
-
-module.exports = router;
-
-// ========== routes/uploadRoutes.js ==========
-const express = require('express');
-const { protect, authorize } = require('../middleware/auth');
-const { upload } = require('../config/cloudinary');
-const router = express.Router();
-
-// const { uploadImage, uploadMultipleImages, deleteImage } = require('../controllers/uploadController');
-
-router.post('/image', protect, authorize('admin'), upload.single('image'), uploadImage);
-router.post('/images', protect, authorize('admin'), upload.array('images', 5), uploadMultipleImages);
-router.delete('/image/:publicId', protect, authorize('admin'), deleteImage);
-
-module.exports = router;
-
-// ========== routes/adminRoutes.js ==========
-const express = require('express');
-const { protect, authorize } = require('../middleware/auth');
-const router = express.Router();
-
-// const { getDashboardStats, getOrderStats, getRevenueStats, getCustomers, updateUserRole } = require('../controllers/adminController');
-
-router.use(protect, authorize('admin')); // All routes require admin
-
-router.get('/dashboard', getDashboardStats);
-router.get('/orders/stats', getOrderStats);
-router.get('/revenue', getRevenueStats);
-router.get('/customers', getCustomers);
-router.put('/customers/:id/role', updateUserRole);
-
-module.exports = router;
+/**
+ * ADMIN ROUTES
+ * Base URL: /api/admin
+ * All routes require Admin authentication
+ * GET    /api/admin/dashboard             - Get dashboard statistics
+ * GET    /api/admin/orders/stats          - Get order statistics
+ * GET    /api/admin/revenue               - Get revenue statistics
+ * GET    /api/admin/customers             - Get all customers
+ * PUT    /api/admin/customers/:id/role    - Update user role
+ */

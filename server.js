@@ -8,8 +8,12 @@ const rateLimit = require('express-rate-limit');
 const morgan = require('morgan');
 const cookieParser = require('cookie-parser');
 
-// Load env vars
+// Load env vars FIRST
 dotenv.config();
+
+// Validate environment variables AFTER loading them
+const validateEnv = require('./utils/validateEnv');
+validateEnv();
 
 // Connect to database
 const connectDB = require('./config/db');
@@ -25,6 +29,8 @@ const bookingRoutes = require('./routes/bookingRoutes');
 
 // Middleware
 const errorHandler = require('./middleware/errorHandler');
+const responseMiddleware = require('./middleware/response');
+const requestLogger = require('./middleware/requestLogger');
 
 // Initialize app
 const app = express();
@@ -35,6 +41,12 @@ app.use(express.urlencoded({ extended: true }));
 
 // Cookie parser
 app.use(cookieParser());
+
+// Request logging middleware (logs all requests)
+app.use(requestLogger);
+
+// Response middleware (adds res.apiSuccess, res.apiError, res.apiPaginated)
+app.use(responseMiddleware);
 
 // Dev logging middleware
 if (process.env.NODE_ENV === 'development') {
@@ -113,6 +125,8 @@ app.get('/', (req, res) => {
 
 // Error handler (must be last middleware)
 app.use(errorHandler);
+
+
 
 const PORT = process.env.PORT || 5000;
 

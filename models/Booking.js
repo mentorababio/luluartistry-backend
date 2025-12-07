@@ -162,9 +162,9 @@ BookingSchema.virtual('isUpcoming').get(function() {
 });
 
 // Index for efficient queries
+// Note: bookingNumber unique index already created by unique: true in schema
 BookingSchema.index({ customer: 1, appointmentDate: -1 });
 BookingSchema.index({ appointmentDate: 1, location: 1, 'artist.type': 1 });
 BookingSchema.index({ status: 1, appointmentDate: 1 });
-BookingSchema.index({ bookingNumber: 1 });
 
 module.exports = mongoose.model('Booking', BookingSchema);

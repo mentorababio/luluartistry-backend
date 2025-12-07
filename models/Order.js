@@ -194,8 +194,8 @@ OrderSchema.post('save', async function() {
 });
 
 // Index for efficient queries
+// Note: orderNumber unique index already created by unique: true in schema
 OrderSchema.index({ user: 1, createdAt: -1 });
-OrderSchema.index({ orderNumber: 1 });
 OrderSchema.index({ orderStatus: 1, createdAt: -1 });
 OrderSchema.index({ 'payment.status': 1 });
 

@@ -1,24 +1,16 @@
-const User = require('../models/User');
+const UserService = require('../src/core/services/UserService');
 const ErrorResponse = require('../utils/errorResponse');
-const sendEmail = require('../utils/sendEmail');
+const { sendEmail } = require('../utils/sendEmail');
 const { welcomeEmail, passwordResetEmail } = require('../utils/emailTemplates');
 const crypto = require('crypto');
+const User = require('../models/User');
 
 // @desc    Register user
 // @route   POST /api/auth/register
 // @access  Public
 exports.register = async (req, res, next) => {
   try {
-    const { firstName, lastName, email, phone, password } = req.body;
-
-    // Create user
-    const user = await User.create({
-      firstName,
-      lastName,
-      email,
-      phone,
-      password
-    });
+    const user = await UserService.createUser(req.body);
 
     // Send welcome email
     try {
@@ -43,26 +35,7 @@ exports.register = async (req, res, next) => {
 exports.login = async (req, res, next) => {
   try {
     const { email, password } = req.body;
-
-    // Validate email & password
-    if (!email || !password) {
-      return next(new ErrorResponse('Please provide email and password', 400));
-    }
-
-    // Check for user
-    const user = await User.findOne({ email }).select('+password');
-
-    if (!user) {
-      return next(new ErrorResponse('Invalid credentials', 401));
-    }
-
-    // Check if password matches
-    const isMatch = await user.matchPassword(password);
-
-    if (!isMatch) {
-      return next(new ErrorResponse('Invalid credentials', 401));
-    }
-
+    const user = await UserService.authenticateUser(email, password);
     sendTokenResponse(user, 200, res);
   } catch (error) {
     next(error);
@@ -74,8 +47,7 @@ exports.login = async (req, res, next) => {
 // @access  Private
 exports.getMe = async (req, res, next) => {
   try {
-    const user = await User.findById(req.user.id);
-
+    const user = await UserService.getUserProfile(req.user.id);
     res.status(200).json({
       success: true,
       data: user

@@ -99,16 +99,13 @@ CartSchema.virtual('isAbandoned').get(function() {
 });
 
 // Index for efficient queries
-CartSchema.index({ user: 1 });
-CartSchema.index({ sessionId: 1 });
+// Note: Compound indexes are more efficient than single field indexes
 CartSchema.index({ lastUpdated: 1 });
 CartSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 }); // TTL index for auto-deletion
 
-// Compound index for abandoned cart queries
-CartSchema.index({ 
-  lastUpdated: 1, 
-  abandonmentEmailSent: 1,
-  'items.0': { $exists: true } // Has at least one item
-});
+// Compound indexes for common queries
+CartSchema.index({ user: 1, lastUpdated: -1 }); // For retrieving user's cart
+CartSchema.index({ sessionId: 1, lastUpdated: -1 }); // For guest carts
+CartSchema.index({ lastUpdated: 1, abandonmentEmailSent: 1 }); // For abandoned cart queries
 
 module.exports = mongoose.model('Cart', CartSchema);

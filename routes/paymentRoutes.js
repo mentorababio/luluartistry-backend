@@ -3,22 +3,24 @@ const {
   initializePayment,
   verifyPayment,
   paystackWebhook,
-  initiateRefund
+  initiateRefund,
+  verifyPaystackPayment,
+  confirmBankTransferPayment  // ← Add this
 } = require('../controllers/paymentController');
-const { protect, authorize } = require('../middleware/auth');
 
+const { protect, authorize } = require('../middleware/auth');
 const router = express.Router();
 
-// Initialize payment
-router.post('/initialize', protect, initializePayment);
-
-// Verify payment
+// Public routes
 router.get('/verify/:reference', verifyPayment);
-
-// Paystack webhook (for automatic payment notifications)
 router.post('/webhook', paystackWebhook);
 
-// Initiate refund (Admin only)
+// User routes
+router.post('/initialize', protect, initializePayment);
+router.post('/verify-order/:id', protect, verifyPaystackPayment);  // ← For orders specifically
+
+// Admin routes
 router.post('/refund', protect, authorize('admin'), initiateRefund);
+router.put('/confirm-bank-transfer/:orderId', protect, authorize('admin'), confirmBankTransferPayment);  // ← NEW
 
 module.exports = router;

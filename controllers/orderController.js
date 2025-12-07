@@ -18,8 +18,23 @@ exports.createOrder = async (req, res, next) => {
       coupon,
       isGift,
       giftMessage,
-      notes
+      notes,
+      paymentMethod  // ← Make sure this is destructured
     } = req.body;
+
+    // Validate payment method
+    if (!paymentMethod) {
+      return next(new ErrorResponse('Payment method is required', 400));
+    }
+
+    if (!['paystack', 'bank_transfer'].includes(paymentMethod)) {
+      return next(new ErrorResponse('Invalid payment method', 400));
+    }
+
+    // Validate required fields
+    if (!items || items.length === 0) {
+      return next(new ErrorResponse('Order must have at least one item', 400));
+    }
 
     // Validate stock availability
     for (const item of items) {
@@ -37,6 +52,25 @@ exports.createOrder = async (req, res, next) => {
     const shippingCost = deliveryZone.cost;
     const discount = coupon?.discountAmount || 0;
     const total = subtotal + shippingCost - discount;
+
+    // Set status based on payment method
+    let orderStatus;
+    let paymentStatus;
+    let paymentData = {
+      method: paymentMethod
+    };
+
+    if (paymentMethod === 'bank_transfer') {
+      // Bank Transfer: Create order immediately, wait for admin confirmation
+      orderStatus = 'pending_payment';
+      paymentStatus = 'awaiting_transfer';
+      paymentData.status = 'awaiting_transfer';
+    } else if (paymentMethod === 'paystack') {
+      // Paystack: Create order, mark as pending verification
+      orderStatus = 'pending_verification';
+      paymentStatus = 'pending';
+      paymentData.status = 'pending';
+    }
 
     // Create order
     const order = await Order.create({
@@ -57,10 +91,20 @@ exports.createOrder = async (req, res, next) => {
       notes: {
         customerNote: notes
       },
-      payment: {
-        method: req.body.paymentMethod || 'paystack'
-      }
+      payment: paymentData,
+      orderStatus,
+      paymentStatus  // Add this if your schema has it at root level
     });
+
+    // Update product stock
+    for (const item of items) {
+      await Product.findByIdAndUpdate(item.product, {
+        $inc: { 
+          stock: -item.quantity,
+          totalSales: item.quantity
+        }
+      });
+    }
 
     // Clear user's cart after order
     if (req.user) {
@@ -70,23 +114,43 @@ exports.createOrder = async (req, res, next) => {
     // Populate order details
     await order.populate('items.product', 'name images');
 
+    // Send different responses based on payment method
+    let responseMessage;
+    if (paymentMethod === 'bank_transfer') {
+      responseMessage = 'Order created successfully. Please complete bank transfer to the account details provided.';
+    } else {
+      responseMessage = 'Order created successfully. Please complete payment.';
+    }
+
     res.status(201).json({
       success: true,
-      data: order
+      data: order,
+      message: responseMessage,
+      // Include bank details if bank transfer
+      ...(paymentMethod === 'bank_transfer' && {
+        bankDetails: {
+          bankName: process.env.BANK_NAME || 'Your Bank Name',
+          accountNumber: process.env.ACCOUNT_NUMBER || 'Your Account Number',
+          accountName: process.env.ACCOUNT_NAME || 'Lulu Artistry',
+          amount: total
+        }
+      })
     });
+
   } catch (error) {
+    console.error('Order creation error:', error);
     next(error);
   }
 };
 
-// @desc    Get all orders (user's own orders)
+// @desc    Get user orders
 // @route   GET /api/orders
 // @access  Private
 exports.getOrders = async (req, res, next) => {
   try {
     const orders = await Order.find({ user: req.user.id })
       .populate('items.product', 'name images')
-      .sort('-createdAt');
+      .sort({ createdAt: -1 });
 
     res.status(200).json({
       success: true,
@@ -104,64 +168,17 @@ exports.getOrders = async (req, res, next) => {
 exports.getOrder = async (req, res, next) => {
   try {
     const order = await Order.findById(req.params.id)
-      .populate('items.product', 'name images');
+      .populate('items.product', 'name images')
+      .populate('user', 'firstName lastName email phone');
 
     if (!order) {
       return next(new ErrorResponse('Order not found', 404));
     }
 
-    // Make sure user is order owner or admin
-    if (order.user && order.user.toString() !== req.user.id && req.user.role !== 'admin') {
+    // Check if user is order owner or admin
+    if (order.user._id.toString() !== req.user.id && req.user.role !== 'admin') {
       return next(new ErrorResponse('Not authorized to access this order', 403));
     }
-
-    res.status(200).json({
-      success: true,
-      data: order
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
-// @desc    Update order status
-// @route   PUT /api/orders/:id/status
-// @access  Private/Admin
-exports.updateOrderStatus = async (req, res, next) => {
-  try {
-    const { status, note } = req.body;
-
-    let order = await Order.findById(req.params.id);
-
-    if (!order) {
-      return next(new ErrorResponse('Order not found', 404));
-    }
-
-    order.orderStatus = status;
-    
-    if (note) {
-      order.statusHistory.push({
-        status,
-        note,
-        updatedAt: new Date()
-      });
-    }
-
-    if (status === 'delivered') {
-      order.deliveredAt = new Date();
-    }
-
-    if (status === 'cancelled') {
-      order.cancelledAt = new Date();
-      // Restore stock
-      for (const item of order.items) {
-        await Product.findByIdAndUpdate(item.product, {
-          $inc: { stock: item.quantity }
-        });
-      }
-    }
-
-    await order.save();
 
     res.status(200).json({
       success: true,
@@ -177,28 +194,61 @@ exports.updateOrderStatus = async (req, res, next) => {
 // @access  Private/Admin
 exports.getAllOrders = async (req, res, next) => {
   try {
-    const page = parseInt(req.query.page, 10) || 1;
-    const limit = parseInt(req.query.limit, 10) || 20;
-    const startIndex = (page - 1) * limit;
+    const { status, page = 1, limit = 10 } = req.query;
+    const skip = (page - 1) * limit;
 
-    const query = {};
-    if (req.query.status) {
-      query.orderStatus = req.query.status;
+    let query = {};
+    if (status) {
+      query.status = status;
     }
 
-    const total = await Order.countDocuments(query);
     const orders = await Order.find(query)
-      .populate('user', 'firstName lastName email')
       .populate('items.product', 'name images')
-      .sort('-createdAt')
-      .skip(startIndex)
-      .limit(limit);
+      .populate('user', 'firstName lastName email phone')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit));
+
+    const total = await Order.countDocuments(query);
 
     res.status(200).json({
       success: true,
       count: orders.length,
       total,
+      pages: Math.ceil(total / limit),
       data: orders
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Update order status
+// @route   PUT /api/orders/:id/status
+// @access  Private/Admin
+exports.updateOrderStatus = async (req, res, next) => {
+  try {
+    const { status } = req.body;
+
+    const validStatuses = ['pending', 'processing', 'shipped', 'delivered', 'cancelled'];
+    if (!status || !validStatuses.includes(status)) {
+      return next(new ErrorResponse('Invalid order status', 400));
+    }
+
+    const order = await Order.findByIdAndUpdate(
+      req.params.id,
+      { status },
+      { new: true, runValidators: true }
+    ).populate('items.product', 'name images');
+
+    if (!order) {
+      return next(new ErrorResponse('Order not found', 404));
+    }
+
+    res.status(200).json({
+      success: true,
+      data: order,
+      message: `Order status updated to ${status}`
     });
   } catch (error) {
     next(error);
@@ -216,33 +266,30 @@ exports.cancelOrder = async (req, res, next) => {
       return next(new ErrorResponse('Order not found', 404));
     }
 
-    // Check if user owns the order
-    if (order.user.toString() !== req.user.id && req.user.role !== 'admin') {
-      return next(new ErrorResponse('Not authorized', 403));
+    // Check if user is order owner
+    if (order.user.toString() !== req.user.id) {
+      return next(new ErrorResponse('Not authorized to cancel this order', 403));
     }
 
-    // Can only cancel pending or processing orders
-    if (!['pending', 'processing'].includes(order.orderStatus)) {
-      return next(new ErrorResponse('Cannot cancel order at this stage', 400));
+    // Only allow cancellation of pending orders
+    if (order.status !== 'pending') {
+      return next(new ErrorResponse('Can only cancel pending orders', 400));
     }
 
-    order.orderStatus = 'cancelled';
-    order.cancelledAt = new Date();
-    order.cancellationReason = req.body.reason;
-
-    // Restore stock
+    // Restore product stock
     for (const item of order.items) {
       await Product.findByIdAndUpdate(item.product, {
         $inc: { stock: item.quantity, totalSales: -item.quantity }
       });
     }
 
+    order.status = 'cancelled';
     await order.save();
 
     res.status(200).json({
       success: true,
-      message: 'Order cancelled successfully',
-      data: order
+      data: order,
+      message: 'Order cancelled successfully'
     });
   } catch (error) {
     next(error);
