@@ -68,14 +68,15 @@ app.use('/api/', limiter);
 // CORS configuration
 const corsOptions = {
   origin: [
-    process.env.FRONTEND_URL,
-    process.env.ADMIN_DASHBOARD_URL,
-    'https://luluartistry.vercel.app'
-    
+    process.env.FRONTEND_URL || 'https://luluartistry.vercel.app',
+    'https://luluartistry.vercel.app',
+    'http://localhost:3000',  // For local development
+    'http://localhost:3001'   // If you run admin on different port
   ],
   credentials: true,
   optionsSuccessStatus: 200
 };
+
 app.use(cors(corsOptions));
 
 
