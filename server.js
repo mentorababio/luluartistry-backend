@@ -49,7 +49,7 @@ app.use(requestLogger);
 app.use(responseMiddleware);
 
 // Dev logging middleware
-if (process.env.NODE_ENV === 'development') {
+if (process.env.NODE_ENV === 'production') {
   app.use(morgan('dev'));
 }
 
@@ -68,11 +68,9 @@ app.use('/api/', limiter);
 // CORS configuration
 const corsOptions = {
   origin: [
-    process.env.FRONTEND_URL || 'https://luluartistry.vercel.app',
-    'https://luluartistry.vercel.app',
-    'http://localhost:3000',  // For local development
-    'http://localhost:3001'   // If you run admin on different port
-  ],
+    process.env.FRONTEND_URL || 'https://luluartistry-ltd.vercel.app',
+    'https://luluartistry-ltd.vercel.app',
+],
   credentials: true,
   optionsSuccessStatus: 200
 };
