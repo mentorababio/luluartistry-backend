@@ -26,6 +26,7 @@ const categoryRoutes = require('./routes/categoryRoutes');
 const orderRoutes = require('./routes/orderRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
 const bookingRoutes = require('./routes/bookingRoutes');
+const userRoutes = require('./routes/userRoutes');
 
 // Middleware
 const errorHandler = require('./middleware/errorHandler');
@@ -34,7 +35,10 @@ const requestLogger = require('./middleware/requestLogger');
 
 // Initialize app
 const app = express();
-
+// UPLOAD ROUTES
+app.use('/api/uploads', require('./routes/uploadRoutes'));
+// USER ROUTES
+app.use('/api/users', userRoutes);
 // Body parser
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));

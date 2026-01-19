@@ -1,6 +1,6 @@
 const Product = require('../models/Product');
 const ErrorResponse = require('../utils/errorResponse');
-
+const cloudinary = require('../config/cloudinary');
 // @desc    Get all products
 // @route   GET /api/products
 // @access  Public
@@ -123,7 +123,26 @@ exports.getProduct = async (req, res, next) => {
 // @access  Private/Admin
 exports.createProduct = async (req, res, next) => {
   try {
-    const product = await Product.create(req.body);
+    const { name, price, category, images } = req.body;
+
+    // Basic validation (important for JSON)
+    if (!name || !price || !category) {
+      return next(
+        new ErrorResponse(
+          'Please provide product name, price and category',
+          400
+        )
+      );
+    }
+
+    const product = await Product.create({
+      ...req.body,
+
+      // IMPORTANT: ensure frontend JSON does not hide products
+      images: images || [],
+      isActive: true,        // force visible by default
+      isFeatured: false     // admin can toggle later
+    });
 
     res.status(201).json({
       success: true,
@@ -216,6 +235,41 @@ exports.getProductsByCategory = async (req, res, next) => {
       success: true,
       count: products.length,
       data: products
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+
+
+exports.deleteProductImage = async (req, res, next) => {
+  try {
+    const { publicId } = req.body;
+
+    if (!publicId) {
+      return next(new ErrorResponse('Image publicId is required', 400));
+    }
+
+    const product = await Product.findById(req.params.id);
+
+    if (!product) {
+      return next(new ErrorResponse('Product not found', 404));
+    }
+
+    // Remove image from Cloudinary
+    await cloudinary.uploader.destroy(publicId);
+
+    // Remove image from product.images array
+    product.images = product.images.filter(
+      img => img.publicId !== publicId
+    );
+
+    await product.save();
+
+    res.status(200).json({
+      success: true,
+      data: product.images
     });
   } catch (error) {
     next(error);

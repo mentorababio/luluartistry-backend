@@ -22,6 +22,97 @@ exports.createOrder = async (req, res, next) => {
       paymentMethod  // ← Make sure this is destructured
     } = req.body;
 
+// @desc    Get logged-in user's orders
+// @route   GET /api/orders/my
+// @access  Private
+exports.getMyOrders = async (req, res, next) => {
+  try {
+    const filter = { user: req.user.id };
+
+    // Support status tabs: processing, shipped, delivered, cancelled
+    if (req.query.status) {
+      filter.orderStatus = req.query.status;
+    }
+
+    const orders = await Order.find(filter)
+      .sort('-createdAt');
+
+    res.status(200).json({
+      success: true,
+      count: orders.length,
+      data: orders
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Get single order for logged-in user
+// @route   GET /api/orders/my/:id
+// @access  Private
+exports.getMyOrder = async (req, res, next) => {
+  try {
+    const order = await Order.findOne({
+      _id: req.params.id,
+      user: req.user.id
+    });
+
+    if (!order) {
+      return next(new ErrorResponse('Order not found', 404));
+    }
+
+    res.status(200).json({
+      success: true,
+      data: order
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+// @desc    Add bank transfer reference
+// @route   PATCH /api/orders/my/:id/payment-reference
+// @access  Private
+exports.addPaymentReference = async (req, res, next) => {
+  try {
+    const { reference } = req.body;
+
+    if (!reference) {
+      return next(
+        new ErrorResponse('Payment reference is required', 400)
+      );
+    }
+
+    const order = await Order.findOne({
+      _id: req.params.id,
+      user: req.user.id
+    });
+
+    if (!order) {
+      return next(new ErrorResponse('Order not found', 404));
+    }
+
+    if (order.payment.method !== 'bank_transfer') {
+      return next(
+        new ErrorResponse('Not a bank transfer order', 400)
+      );
+    }
+
+    order.payment.reference = reference;
+    order.payment.status = 'initiated';
+
+    await order.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Payment reference submitted successfully',
+      data: order
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+
     // Validate payment method
     if (!paymentMethod) {
       return next(new ErrorResponse('Payment method is required', 400));
@@ -290,6 +381,99 @@ exports.cancelOrder = async (req, res, next) => {
       success: true,
       data: order,
       message: 'Order cancelled successfully'
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ===============================
+// USER ORDER CONTROLLERS
+// ===============================
+
+// @desc    Get logged-in user's orders
+// @route   GET /api/orders/my
+// @access  Private
+exports.getMyOrders = async (req, res, next) => {
+  try {
+    const filter = { user: req.user.id };
+
+    if (req.query.status) {
+      filter.orderStatus = req.query.status;
+    }
+
+    const orders = await Order.find(filter).sort('-createdAt');
+
+    res.status(200).json({
+      success: true,
+      count: orders.length,
+      data: orders
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Get single order for logged-in user
+// @route   GET /api/orders/my/:id
+// @access  Private
+exports.getMyOrder = async (req, res, next) => {
+  try {
+    const order = await Order.findOne({
+      _id: req.params.id,
+      user: req.user.id
+    });
+
+    if (!order) {
+      return next(new ErrorResponse('Order not found', 404));
+    }
+
+    res.status(200).json({
+      success: true,
+      data: order
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Add bank transfer payment reference
+// @route   PATCH /api/orders/my/:id/payment-reference
+// @access  Private
+exports.addPaymentReference = async (req, res, next) => {
+  try {
+    const { reference } = req.body;
+
+    if (!reference) {
+      return next(
+        new ErrorResponse('Payment reference is required', 400)
+      );
+    }
+
+    const order = await Order.findOne({
+      _id: req.params.id,
+      user: req.user.id
+    });
+
+    if (!order) {
+      return next(new ErrorResponse('Order not found', 404));
+    }
+
+    if (order.payment.method !== 'bank_transfer') {
+      return next(
+        new ErrorResponse('Not a bank transfer order', 400)
+      );
+    }
+
+    order.payment.reference = reference;
+    order.payment.status = 'initiated';
+
+    await order.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Payment reference submitted successfully',
+      data: order
     });
   } catch (error) {
     next(error);
