@@ -12,18 +12,21 @@ const { protect, authorize } = require('../middleware/auth');
 
 const router = express.Router();
 
+// PUBLIC ROUTES FIRST
+// Check available time slots (Public - anyone can check)
+router.get('/availability', getAvailability);
+
+// ADMIN ROUTES (SPECIFIC PATTERNS)
+// Get all bookings (Admin only)
+router.get('/admin/all', protect, authorize('admin'), getAllBookings);
+
+// USER ROUTES
 // Get user bookings & Create new booking
 router.route('/')
   .get(protect, getBookings)
   .post(protect, createBooking);
 
-// Check available time slots (Public - anyone can check)
-router.get('/availability', getAvailability);
-
-// Get all bookings (Admin only)
-router.get('/admin/all', protect, authorize('admin'), getAllBookings);
-
-// Get single booking
+// Get single booking (GENERIC ROUTE LAST)
 router.get('/:id', protect, getBooking);
 
 // Update booking status (Admin only)

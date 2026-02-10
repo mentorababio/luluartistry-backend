@@ -91,7 +91,7 @@ exports.addPaymentReference = async (req, res, next) => {
       return next(new ErrorResponse('Order not found', 404));
     }
 
-    if (order.payment.method !== 'bank_transfer') {
+    if (order.payment.method !== 'transfer') {
       return next(
         new ErrorResponse('Not a bank transfer order', 400)
       );
@@ -118,8 +118,8 @@ exports.addPaymentReference = async (req, res, next) => {
       return next(new ErrorResponse('Payment method is required', 400));
     }
 
-    if (!['paystack', 'bank_transfer'].includes(paymentMethod)) {
-      return next(new ErrorResponse('Invalid payment method', 400));
+    if (!['paystack', 'transfer'].includes(paymentMethod)) {
+      return next(new ErrorResponse('Invalid payment method. Must be "paystack" or "transfer"', 400));
     }
 
     // Validate required fields
@@ -146,20 +146,17 @@ exports.addPaymentReference = async (req, res, next) => {
 
     // Set status based on payment method
     let orderStatus;
-    let paymentStatus;
     let paymentData = {
       method: paymentMethod
     };
 
-    if (paymentMethod === 'bank_transfer') {
+    if (paymentMethod === 'transfer') {
       // Bank Transfer: Create order immediately, wait for admin confirmation
-      orderStatus = 'pending_payment';
-      paymentStatus = 'awaiting_transfer';
-      paymentData.status = 'awaiting_transfer';
+      orderStatus = 'pending';
+      paymentData.status = 'pending';
     } else if (paymentMethod === 'paystack') {
-      // Paystack: Create order, mark as pending verification
-      orderStatus = 'pending_verification';
-      paymentStatus = 'pending';
+      // Paystack: Create order, mark as pending payment
+      orderStatus = 'pending';
       paymentData.status = 'pending';
     }
 
@@ -183,8 +180,7 @@ exports.addPaymentReference = async (req, res, next) => {
         customerNote: notes
       },
       payment: paymentData,
-      orderStatus,
-      paymentStatus  // Add this if your schema has it at root level
+      orderStatus
     });
 
     // Update product stock
@@ -199,7 +195,12 @@ exports.addPaymentReference = async (req, res, next) => {
 
     // Clear user's cart after order
     if (req.user) {
-      await Cart.findOneAndDelete({ user: req.user.id });
+      try {
+        await Cart.findOneAndDelete({ user: req.user.id });
+      } catch (cartError) {
+        console.error('Error clearing cart:', cartError);
+        // Don't fail the order if cart deletion fails
+      }
     }
 
     // Populate order details
@@ -207,7 +208,7 @@ exports.addPaymentReference = async (req, res, next) => {
 
     // Send different responses based on payment method
     let responseMessage;
-    if (paymentMethod === 'bank_transfer') {
+    if (paymentMethod === 'transfer') {
       responseMessage = 'Order created successfully. Please complete bank transfer to the account details provided.';
     } else {
       responseMessage = 'Order created successfully. Please complete payment.';
@@ -218,7 +219,7 @@ exports.addPaymentReference = async (req, res, next) => {
       data: order,
       message: responseMessage,
       // Include bank details if bank transfer
-      ...(paymentMethod === 'bank_transfer' && {
+      ...(paymentMethod === 'transfer' && {
         bankDetails: {
           bankName: process.env.BANK_NAME || 'Your Bank Name',
           accountNumber: process.env.ACCOUNT_NUMBER || 'Your Account Number',
@@ -430,49 +431,6 @@ exports.getMyOrder = async (req, res, next) => {
 
     res.status(200).json({
       success: true,
-      data: order
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
-// @desc    Add bank transfer payment reference
-// @route   PATCH /api/orders/my/:id/payment-reference
-// @access  Private
-exports.addPaymentReference = async (req, res, next) => {
-  try {
-    const { reference } = req.body;
-
-    if (!reference) {
-      return next(
-        new ErrorResponse('Payment reference is required', 400)
-      );
-    }
-
-    const order = await Order.findOne({
-      _id: req.params.id,
-      user: req.user.id
-    });
-
-    if (!order) {
-      return next(new ErrorResponse('Order not found', 404));
-    }
-
-    if (order.payment.method !== 'bank_transfer') {
-      return next(
-        new ErrorResponse('Not a bank transfer order', 400)
-      );
-    }
-
-    order.payment.reference = reference;
-    order.payment.status = 'initiated';
-
-    await order.save();
-
-    res.status(200).json({
-      success: true,
-      message: 'Payment reference submitted successfully',
       data: order
     });
   } catch (error) {

@@ -331,7 +331,7 @@ exports.confirmBankTransferPayment = async (req, res, next) => {
       return next(new ErrorResponse('Order not found', 404));
     }
 
-    if (order.payment.method !== 'bank_transfer') {
+    if (order.payment.method !== 'transfer') {
       return next(new ErrorResponse('This order does not use bank transfer', 400));
     }
 

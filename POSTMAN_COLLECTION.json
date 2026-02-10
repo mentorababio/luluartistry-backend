@@ -1,8 +1,9 @@
 {
   "info": {
-    "name": "Lulu Artistry API (Full)",
-    "description": "Complete production-ready API collection for Lulu Artistry backend (Users, Orders, Payments, Profile, Wishlist)",
-    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    "name": "Lulu Artistry Backend API",
+    "description": "Complete production-ready API for Lulu Artistry backend. This collection includes all endpoints for user authentication, profile management, orders, payments, products, and admin features. Perfect for frontend integration with detailed request/response examples.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_postman_exporter_id": "luluartistry-2024"
   },
   "variable": [
     {
@@ -12,31 +13,76 @@
     },
     {
       "key": "token",
-      "value": "",
+      "value": "your_jwt_token_here",
+      "type": "string"
+    },
+    {
+      "key": "userId",
+      "value": "user_id_here",
       "type": "string"
     },
     {
       "key": "orderId",
-      "value": "",
+      "value": "order_id_here",
       "type": "string"
     },
     {
       "key": "productId",
-      "value": "",
+      "value": "product_id_here",
       "type": "string"
     },
     {
       "key": "addressId",
-      "value": "",
+      "value": "address_id_here",
+      "type": "string"
+    },
+    {
+      "key": "categoryId",
+      "value": "category_id_here",
       "type": "string"
     }
   ],
   "item": [
     {
-      "name": "Authentication",
+      "name": "🔐 Authentication",
+      "description": "User registration, login, and profile management endpoints",
       "item": [
         {
-          "name": "Login",
+          "name": "Register New User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  pm.collectionVariables.set('token', pm.response.json().token);",
+                  "  console.log('Registration successful! Token saved.');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"John\",\n  \"lastName\": \"Doe\",\n  \"email\": \"john.doe@example.com\",\n  \"phone\": \"08012345678\",\n  \"password\": \"SecurePassword123!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "register"]
+            },
+            "description": "Create a new user account. Phone number must be 11 digits (Nigerian format). Password minimum 6 characters."
+          }
+        },
+        {
+          "name": "Login User",
           "event": [
             {
               "listen": "test",
@@ -44,53 +90,47 @@
                 "exec": [
                   "if (pm.response.code === 200) {",
                   "  pm.collectionVariables.set('token', pm.response.json().token);",
-                  "}"
+                  "  console.log('Login successful! JWT token saved to {{token}} variable');"
                 ]
               }
             }
           ],
           "request": {
             "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"user@email.com\",\n  \"password\": \"password123\"\n}"
+              "raw": "{\n  \"email\": \"john.doe@example.com\",\n  \"password\": \"SecurePassword123!\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/auth/login",
               "host": ["{{baseUrl}}"],
               "path": ["auth", "login"]
-            }
+            },
+            "description": "Authenticate user and receive JWT token. Use this token in Authorization header for protected routes. Token is automatically saved to {{token}} variable for use in subsequent requests."
           }
         },
         {
-          "name": "Get Me",
+          "name": "Get Current User Profile",
           "request": {
             "method": "GET",
-            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/auth/me",
               "host": ["{{baseUrl}}"],
               "path": ["auth", "me"]
-            }
-          }
-        }
-      ]
-    },
-
-    {
-      "name": "User Profile",
-      "item": [
-        {
-          "name": "Get My Profile",
-          "request": {
-            "method": "GET",
-            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
-            "url": {
-              "raw": "{{baseUrl}}/users/me",
-              "host": ["{{baseUrl}}"],
-              "path": ["users", "me"]
-            }
+            },
+            "description": "Retrieve the currently logged-in user's profile information. Requires valid JWT token."
           }
         },
         {
@@ -98,55 +138,163 @@
           "request": {
             "method": "PUT",
             "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" },
-              { "key": "Content-Type", "value": "application/json" }
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"firstName\": \"Sarah\",\n  \"lastName\": \"Johnson\",\n  \"phone\": \"08012345678\"\n}"
+              "raw": "{\n  \"firstName\": \"Jane\",\n  \"lastName\": \"Smith\",\n  \"phone\": \"08087654321\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/update-profile",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "update-profile"]
+            },
+            "description": "Update user profile information (first name, last name, phone). Only send fields you want to update."
+          }
+        },
+        {
+          "name": "Update Password",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"currentPassword\": \"OldPassword123!\",\n  \"newPassword\": \"NewPassword456!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/update-password",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "update-password"]
+            },
+            "description": "Change user password. Must provide current password for verification."
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/logout",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "logout"]
+            },
+            "description": "Logout user. On frontend, clear the JWT token from localStorage after this call."
+          }
+        }
+      ]
+    },
+    {
+      "name": "👤 User Profile & Addresses",
+      "description": "Get and manage user profile, addresses, and wishlist",
+      "item": [
+        {
+          "name": "Get My Profile",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/users/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["users", "me"]
+            },
+            "description": "Fetch complete profile information for logged-in user including addresses and wishlist."
+          }
+        },
+        {
+          "name": "Update My Profile",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"firstName\": \"Jane\",\n  \"lastName\": \"Smith\",\n  \"phone\": \"08087654321\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/users/me",
               "host": ["{{baseUrl}}"],
               "path": ["users", "me"]
-            }
+            },
+            "description": "Update profile details. Only send fields to update (firstName, lastName, phone)."
           }
-        }
-      ]
-    },
-
-    {
-      "name": "Addresses",
-      "item": [
+        },
         {
-          "name": "Get Addresses",
+          "name": "Get My Addresses",
           "request": {
             "method": "GET",
-            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/users/me/addresses",
               "host": ["{{baseUrl}}"],
               "path": ["users", "me", "addresses"]
-            }
+            },
+            "description": "Retrieve all saved addresses for the user. Used in checkout to select shipping address."
           }
         },
         {
-          "name": "Add Address",
+          "name": "Add New Address",
           "request": {
             "method": "POST",
             "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" },
-              { "key": "Content-Type", "value": "application/json" }
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"fullName\": \"Sarah Johnson\",\n  \"phone\": \"08012345678\",\n  \"address\": \"23 Main Street\",\n  \"city\": \"Lagos\",\n  \"state\": \"Lagos\",\n  \"country\": \"Nigeria\",\n  \"isDefault\": true\n}"
+              "raw": "{\n  \"addressType\": \"home\",\n  \"street\": \"123 Main Street, Apartment 4B\",\n  \"city\": \"Lagos\",\n  \"state\": \"Lagos State\",\n  \"isDefault\": true\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/users/me/addresses",
               "host": ["{{baseUrl}}"],
               "path": ["users", "me", "addresses"]
-            }
+            },
+            "description": "Add a new delivery address. If isDefault is true, automatically unsets other default addresses. addressType can be: home, office, or other."
           }
         },
         {
@@ -154,98 +302,346 @@
           "request": {
             "method": "PUT",
             "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" },
-              { "key": "Content-Type", "value": "application/json" }
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
             ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"street\": \"456 New Street\",\n  \"city\": \"Abuja\",\n  \"state\": \"FCT\",\n  \"isDefault\": true\n}"
+            },
             "url": {
               "raw": "{{baseUrl}}/users/me/addresses/{{addressId}}",
               "host": ["{{baseUrl}}"],
               "path": ["users", "me", "addresses", "{{addressId}}"]
-            }
+            },
+            "description": "Update an existing address. Replace {{addressId}} with the address ID. Send only fields to update."
           }
         },
         {
           "name": "Delete Address",
           "request": {
             "method": "DELETE",
-            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/users/me/addresses/{{addressId}}",
               "host": ["{{baseUrl}}"],
               "path": ["users", "me", "addresses", "{{addressId}}"]
-            }
+            },
+            "description": "Delete an address from user's saved addresses. Cannot be undone."
           }
-        }
-      ]
-    },
-
-    {
-      "name": "Wishlist",
-      "item": [
+        },
         {
-          "name": "Get Wishlist",
+          "name": "Get My Wishlist",
           "request": {
             "method": "GET",
-            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/users/me/wishlist",
               "host": ["{{baseUrl}}"],
               "path": ["users", "me", "wishlist"]
-            }
+            },
+            "description": "Retrieve all products in user's wishlist. Each item contains full product details."
           }
         },
         {
-          "name": "Add to Wishlist",
+          "name": "Add Product to Wishlist",
           "request": {
             "method": "POST",
-            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/users/me/wishlist/{{productId}}",
               "host": ["{{baseUrl}}"],
               "path": ["users", "me", "wishlist", "{{productId}}"]
-            }
+            },
+            "description": "Add a product to wishlist. Replace {{productId}} with product ID. Returns success message and updated wishlist."
           }
         },
         {
-          "name": "Remove from Wishlist",
+          "name": "Remove Product from Wishlist",
           "request": {
             "method": "DELETE",
-            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/users/me/wishlist/{{productId}}",
               "host": ["{{baseUrl}}"],
               "path": ["users", "me", "wishlist", "{{productId}}"]
-            }
+            },
+            "description": "Remove a product from wishlist. Replace {{productId}} with product ID."
           }
         }
       ]
     },
-
     {
-      "name": "Orders (User)",
+      "name": "🛍️ Products & Categories",
+      "description": "Browse products, filter by category, and manage catalog",
+      "item": [
+        {
+          "name": "Get Featured Products",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/products/featured/all",
+              "host": ["{{baseUrl}}"],
+              "path": ["products", "featured", "all"]
+            },
+            "description": "Get all products marked as featured. Great for homepage display."
+          }
+        },
+        {
+          "name": "Get Products by Category",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/products/category/{{categoryId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["products", "category", "{{categoryId}}"]
+            },
+            "description": "Get all products in a specific category. Replace {{categoryId}} with category ID."
+          }
+        },
+        {
+          "name": "Get All Products",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/products?page=1&limit=10",
+              "host": ["{{baseUrl}}"],
+              "path": ["products"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            },
+            "description": "Get paginated list of products. Query parameters: page (default 1), limit (default 10). Only returns active products."
+          }
+        },
+        {
+          "name": "Get Product by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/products/{{productId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["products", "{{productId}}"]
+            },
+            "description": "Get detailed information for a specific product including images, prices, and stock."
+          }
+        },
+        {
+          "name": "Get All Categories",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/categories",
+              "host": ["{{baseUrl}}"],
+              "path": ["categories"]
+            },
+            "description": "Retrieve all product categories for filtering/navigation."
+          }
+        }
+      ]
+    },
+    {
+      "name": "📊 Orders - Admin Dashboard",
+      "description": "Admin endpoints for order management and fulfillment",
+      "item": [
+        {
+          "name": "Get All Orders (Dashboard)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/orders/admin?status=pending",
+              "host": ["{{baseUrl}}"],
+              "path": ["orders", "admin"],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "pending"
+                }
+              ]
+            },
+            "description": "Get all orders for admin dashboard with optional status filtering. Status values: pending, processing, shipped, delivered, cancelled. Admin only."
+          }
+        },
+        {
+          "name": "Get Order Details (Admin)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/orders/admin/{{orderId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["orders", "admin", "{{orderId}}"]
+            },
+            "description": "Get complete order details including customer info, items, payment status, and history. Admin only."
+          }
+        },
+        {
+          "name": "Get Order History Timeline",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/orders/admin/{{orderId}}/history",
+              "host": ["{{baseUrl}}"],
+              "path": ["orders", "admin", "{{orderId}}", "history"]
+            },
+            "description": "Get complete order timeline showing all status changes with timestamps and notes. Admin only."
+          }
+        },
+        {
+          "name": "Accept Order",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/orders/admin/{{orderId}}/accept",
+              "host": ["{{baseUrl}}"],
+              "path": ["orders", "admin", "{{orderId}}", "accept"]
+            },
+            "description": "Accept a pending order and move to processing state. Admin only. Order must be in pending status."
+          }
+        },
+        {
+          "name": "Decline Order",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/orders/admin/{{orderId}}/decline",
+              "host": ["{{baseUrl}}"],
+              "path": ["orders", "admin", "{{orderId}}", "decline"]
+            },
+            "description": "Decline/reject an order. Restores product stock and cancels the order. Admin only."
+          }
+        },
+        {
+          "name": "Mark Order as Delivered",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/orders/admin/{{orderId}}/deliver",
+              "host": ["{{baseUrl}}"],
+              "path": ["orders", "admin", "{{orderId}}", "deliver"]
+            },
+            "description": "Mark an order as delivered. Updates order status and records delivery timestamp. Admin only."
+          }
+        }
+      ]
+    },
+    {
+      "name": "🛒 Orders - User",
+      "description": "Create orders, view order history, and manage payment",
       "item": [
         {
           "name": "Get My Orders",
           "request": {
             "method": "GET",
-            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
             "url": {
-              "raw": "{{baseUrl}}/orders/my",
+              "raw": "{{baseUrl}}/orders/my?status=processing",
               "host": ["{{baseUrl}}"],
-              "path": ["orders", "my"]
-            }
+              "path": ["orders", "my"],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "processing"
+                }
+              ]
+            },
+            "description": "Get all orders for logged-in user. Optional status filter: pending, processing, shipped, delivered, or cancelled. Sorted by newest first."
           }
         },
         {
-          "name": "Get Single Order",
+          "name": "Get Order Details",
           "request": {
             "method": "GET",
-            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
             "url": {
               "raw": "{{baseUrl}}/orders/my/{{orderId}}",
               "host": ["{{baseUrl}}"],
               "path": ["orders", "my", "{{orderId}}"]
-            }
+            },
+            "description": "Retrieve complete details for a specific order including items, pricing, payment status, and tracking info."
           }
         },
         {
@@ -253,18 +649,166 @@
           "request": {
             "method": "PATCH",
             "header": [
-              { "key": "Authorization", "value": "Bearer {{token}}" },
-              { "key": "Content-Type", "value": "application/json" }
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"reference\": \"BANK-TRF-123456\"\n}"
+              "raw": "{\n  \"reference\": \"TRF202401151230\"\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/orders/my/{{orderId}}/payment-reference",
               "host": ["{{baseUrl}}"],
               "path": ["orders", "my", "{{orderId}}", "payment-reference"]
-            }
+            },
+            "description": "For bank transfer orders only. Submit the bank transfer reference/receipt number after making payment. Admin will use this to verify and confirm payment."
+          }
+        },
+        {
+          "name": "Create Order",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [\n    {\n      \"product\": \"507f1f77bcf86cd799439011\",\n      \"quantity\": 2,\n      \"price\": 25000\n    }\n  ],\n  \"shippingAddress\": {\n    \"street\": \"123 Main Street\",\n    \"city\": \"Lagos\",\n    \"state\": \"Lagos State\",\n    \"landmark\": \"Near the market\"\n  },\n  \"deliveryZone\": {\n    \"zone\": \"Lagos\",\n    \"cost\": 2500\n  },\n  \"customerInfo\": {\n    \"firstName\": \"John\",\n    \"lastName\": \"Doe\",\n    \"email\": \"john@example.com\",\n    \"phone\": \"08012345678\"\n  },\n  \"coupon\": {\n    \"code\": \"SAVE10\",\n    \"discountAmount\": 5000\n  },\n  \"paymentMethod\": \"paystack\",\n  \"isGift\": false,\n  \"notes\": \"Please handle with care\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/orders",
+              "host": ["{{baseUrl}}"],
+              "path": ["orders"]
+            },
+            "description": "Create a new order. paymentMethod can be 'paystack' or 'transfer' (for bank transfer). For bank transfer, you'll receive bank details in response. After order creation, items are reserved and user's cart is cleared."
+          }
+        },
+        {
+          "name": "Cancel Order",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/orders/{{orderId}}/cancel",
+              "host": ["{{baseUrl}}"],
+              "path": ["orders", "{{orderId}}", "cancel"]
+            },
+            "description": "Cancel an order. Only pending orders can be cancelled. Product stock will be restored."
+          }
+        }
+      ]
+    },
+    {
+      "name": "💳 Payments",
+      "description": "Handle payment initialization, verification, and bank transfers",
+      "item": [
+        {
+          "name": "Initialize Paystack Payment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"order\",\n  \"referenceId\": \"{{orderId}}\",\n  \"amount\": 52500,\n  \"email\": \"john@example.com\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/payment/initialize",
+              "host": ["{{baseUrl}}"],
+              "path": ["payment", "initialize"]
+            },
+            "description": "Initialize Paystack payment session. Returns authorization URL for redirect. Amount should be total order amount in Naira."
+          }
+        },
+        {
+          "name": "Verify Paystack Payment",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/payment/verify/{{reference}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["payment", "verify", "{{reference}}"]
+            },
+            "description": "Verify Paystack payment after redirect from Paystack. Replace {{reference}} with payment reference from Paystack. Automatically updates order status."
+          }
+        },
+        {
+          "name": "Confirm Bank Transfer Payment (Admin)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"transactionReference\": \"TRF202401151230\",\n  \"amountReceived\": 52500,\n  \"notes\": \"Payment confirmed, preparing order for shipment\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/payment/confirm-bank-transfer/{{orderId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["payment", "confirm-bank-transfer", "{{orderId}}"]
+            },
+            "description": "Admin endpoint to confirm bank transfer payment. Marks order as paid and updates status to processing. Send transaction reference and amount received."
+          }
+        },
+        {
+          "name": "Initiate Refund (Admin)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reference\": \"pay_xxx\",\n  \"amount\": 25000,\n  \"reason\": \"Customer requested cancellation\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/payment/refund",
+              "host": ["{{baseUrl}}"],
+              "path": ["payment", "refund"]
+            },
+            "description": "Initiate a refund via Paystack. Admin only. Amount optional for partial refunds. Leave empty for full refund."
           }
         }
       ]
