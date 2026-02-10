@@ -23,7 +23,6 @@ const {
   getOrderHistory
 } = require('../controllers/adminOrderController');
 
-
 // PAYMENT
 const {
   initializePayment,
@@ -44,8 +43,13 @@ router.get('/admin', protect, authorize('admin'), getAllOrdersAdmin);
 // Order history (timeline)
 router.get('/admin/:id/history', protect, authorize('admin'), getOrderHistory);
 
-// Order details
+// Order details (must come AFTER the specific action routes)
 router.get('/admin/:id', protect, authorize('admin'), getOrderDetailsAdmin);
+
+// Explicit admin actions (UI buttons)
+router.patch('/admin/:id/accept', protect, authorize('admin'), acceptOrder);
+router.patch('/admin/:id/decline', protect, authorize('admin'), declineOrder);
+router.patch('/admin/:id/deliver', protect, authorize('admin'), markOrderDelivered);
 
 /* =================================
    USER ROUTES - SPECIFIC ROUTES FIRST
@@ -66,11 +70,6 @@ router.put('/:id/cancel', protect, cancelOrder);
 
 // Get single order (user) - GENERIC ROUTE LAST
 router.get('/:id', protect, getOrder);
-
-// Explicit admin actions (UI buttons)
-router.patch('/admin/:id/accept', protect, authorize('admin'), acceptOrder);
-router.patch('/admin/:id/decline', protect, authorize('admin'), declineOrder);
-router.patch('/admin/:id/deliver', protect, authorize('admin'), markOrderDelivered);
 
 /* =================================
    LEGACY / COMPATIBILITY ROUTES
