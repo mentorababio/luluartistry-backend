@@ -19,8 +19,130 @@ exports.createOrder = async (req, res, next) => {
       isGift,
       giftMessage,
       notes,
-      paymentMethod  // ← Make sure this is destructured
+      paymentMethod
     } = req.body;
+
+    // Validate payment method
+    if (!paymentMethod) {
+      return next(new ErrorResponse('Payment method is required', 400));
+    }
+
+    if (!['paystack', 'transfer'].includes(paymentMethod)) {
+      return next(new ErrorResponse('Invalid payment method. Must be "paystack" or "transfer"', 400));
+    }
+
+    // Validate required fields
+    if (!items || items.length === 0) {
+      return next(new ErrorResponse('Order must have at least one item', 400));
+    }
+
+    // Validate stock availability
+    for (const item of items) {
+      const product = await Product.findById(item.product);
+      if (!product) {
+        return next(new ErrorResponse(`Product not found: ${item.product}`, 404));
+      }
+      if (product.stock < item.quantity) {
+        return next(new ErrorResponse(`Insufficient stock for ${product.name}`, 400));
+      }
+    }
+
+    // Calculate pricing
+    const subtotal = items.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+    const shippingCost = deliveryZone.cost;
+    const discount = coupon?.discountAmount || 0;
+    const total = subtotal + shippingCost - discount;
+
+    // Set status based on payment method
+    let orderStatus;
+    let paymentData = {
+      method: paymentMethod
+    };
+
+    if (paymentMethod === 'transfer') {
+      // Bank Transfer: Create order immediately, wait for admin confirmation
+      orderStatus = 'pending';
+      paymentData.status = 'pending';
+    } else if (paymentMethod === 'paystack') {
+      // Paystack: Create order, mark as pending payment
+      orderStatus = 'pending';
+      paymentData.status = 'pending';
+    }
+
+    // Create order
+    const order = await Order.create({
+      user: req.user ? req.user.id : undefined,
+      customerInfo,
+      items,
+      shippingAddress,
+      deliveryZone,
+      pricing: {
+        subtotal,
+        shippingCost,
+        discount,
+        total
+      },
+      coupon,
+      isGift,
+      giftMessage,
+      notes: {
+        customerNote: notes
+      },
+      payment: paymentData,
+      orderStatus
+    });
+
+    // Update product stock
+    for (const item of items) {
+      await Product.findByIdAndUpdate(item.product, {
+        $inc: {
+          stock: -item.quantity,
+          totalSales: item.quantity
+        }
+      });
+    }
+
+    // Clear user's cart after order
+    if (req.user) {
+      try {
+        await Cart.findOneAndDelete({ user: req.user.id });
+      } catch (cartError) {
+        console.error('Error clearing cart:', cartError);
+        // Don't fail the order if cart deletion fails
+      }
+    }
+
+    // Populate order details
+    await order.populate('items.product', 'name images');
+
+    // Send different responses based on payment method
+    let responseMessage;
+    if (paymentMethod === 'transfer') {
+      responseMessage = 'Order created successfully. Please complete bank transfer to the account details provided.';
+    } else {
+      responseMessage = 'Order created successfully. Please complete payment.';
+    }
+
+    res.status(201).json({
+      success: true,
+      data: order,
+      message: responseMessage,
+      // Include bank details if bank transfer
+      ...(paymentMethod === 'transfer' && {
+        bankDetails: {
+          bankName: process.env.BANK_NAME || 'Your Bank Name',
+          accountNumber: process.env.ACCOUNT_NUMBER || 'Your Account Number',
+          accountName: process.env.ACCOUNT_NAME || 'Lulu Artistry',
+          amount: total
+        }
+      })
+    });
+
+  } catch (error) {
+    console.error('Order creation error:', error);
+    next(error);
+  }
+};
 
 // @desc    Get logged-in user's orders
 // @route   GET /api/orders/my
@@ -108,129 +230,6 @@ exports.addPaymentReference = async (req, res, next) => {
       data: order
     });
   } catch (error) {
-    next(error);
-  }
-};
-
-
-    // Validate payment method
-    if (!paymentMethod) {
-      return next(new ErrorResponse('Payment method is required', 400));
-    }
-
-    if (!['paystack', 'transfer'].includes(paymentMethod)) {
-      return next(new ErrorResponse('Invalid payment method. Must be "paystack" or "transfer"', 400));
-    }
-
-    // Validate required fields
-    if (!items || items.length === 0) {
-      return next(new ErrorResponse('Order must have at least one item', 400));
-    }
-
-    // Validate stock availability
-    for (const item of items) {
-      const product = await Product.findById(item.product);
-      if (!product) {
-        return next(new ErrorResponse(`Product not found: ${item.product}`, 404));
-      }
-      if (product.stock < item.quantity) {
-        return next(new ErrorResponse(`Insufficient stock for ${product.name}`, 400));
-      }
-    }
-
-    // Calculate pricing
-    const subtotal = items.reduce((acc, item) => acc + (item.price * item.quantity), 0);
-    const shippingCost = deliveryZone.cost;
-    const discount = coupon?.discountAmount || 0;
-    const total = subtotal + shippingCost - discount;
-
-    // Set status based on payment method
-    let orderStatus;
-    let paymentData = {
-      method: paymentMethod
-    };
-
-    if (paymentMethod === 'transfer') {
-      // Bank Transfer: Create order immediately, wait for admin confirmation
-      orderStatus = 'pending';
-      paymentData.status = 'pending';
-    } else if (paymentMethod === 'paystack') {
-      // Paystack: Create order, mark as pending payment
-      orderStatus = 'pending';
-      paymentData.status = 'pending';
-    }
-
-    // Create order
-    const order = await Order.create({
-      user: req.user ? req.user.id : undefined,
-      customerInfo,
-      items,
-      shippingAddress,
-      deliveryZone,
-      pricing: {
-        subtotal,
-        shippingCost,
-        discount,
-        total
-      },
-      coupon,
-      isGift,
-      giftMessage,
-      notes: {
-        customerNote: notes
-      },
-      payment: paymentData,
-      orderStatus
-    });
-
-    // Update product stock
-    for (const item of items) {
-      await Product.findByIdAndUpdate(item.product, {
-        $inc: { 
-          stock: -item.quantity,
-          totalSales: item.quantity
-        }
-      });
-    }
-
-    // Clear user's cart after order
-    if (req.user) {
-      try {
-        await Cart.findOneAndDelete({ user: req.user.id });
-      } catch (cartError) {
-        console.error('Error clearing cart:', cartError);
-        // Don't fail the order if cart deletion fails
-      }
-    }
-
-    // Populate order details
-    await order.populate('items.product', 'name images');
-
-    // Send different responses based on payment method
-    let responseMessage;
-    if (paymentMethod === 'transfer') {
-      responseMessage = 'Order created successfully. Please complete bank transfer to the account details provided.';
-    } else {
-      responseMessage = 'Order created successfully. Please complete payment.';
-    }
-
-    res.status(201).json({
-      success: true,
-      data: order,
-      message: responseMessage,
-      // Include bank details if bank transfer
-      ...(paymentMethod === 'transfer' && {
-        bankDetails: {
-          bankName: process.env.BANK_NAME || 'Your Bank Name',
-          accountNumber: process.env.ACCOUNT_NUMBER || 'Your Account Number',
-          accountName: process.env.ACCOUNT_NAME || 'Lulu Artistry',
-          amount: total
-        }
-      })
-    });
-
-  } catch (error) {
-    console.error('Order creation error:', error);
     next(error);
   }
 };
