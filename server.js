@@ -74,11 +74,12 @@ app.use('/api/', limiter);
 // CORS configuration
 const corsOptions = {
   origin: [
-    process.env.FRONTEND_URL || 'https://luluartistry-ltd.vercel.app',
-    'https://luluartistry-ltd.vercel.app/admin/login',
-    'http://localhost:3000',
-    'http://localhost:3000/admin/login',
-],
+    process.env.FRONTEND_URL,
+    "https://luluartistry.store",
+    "https://www.luluartistry.store",
+    "https://luluartistry-ltd.vercel.app",
+    "http://localhost:3000"
+  ],
   credentials: true,
   optionsSuccessStatus: 200
 };
