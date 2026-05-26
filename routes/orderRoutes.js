@@ -15,7 +15,14 @@ const { initializePayment, confirmBankTransferPayment } = require('../controller
 const { protect, authorize } = require('../middleware/auth');
 
 /* =================================
-   1. ADMIN ROUTES (SPECIFIC)
+   ROOT ROUTES (Must be first to avoid shadowing)
+================================= */
+router.route('/')
+  .post(protect, createOrder)
+  .get(protect, getOrders);
+
+/* =================================
+   ADMIN ROUTES
 ================================= */
 router.get('/admin', protect, authorize('admin'), getAllOrdersAdmin);
 router.get('/admin/all', protect, authorize('admin'), getAllOrders);
@@ -26,26 +33,18 @@ router.patch('/admin/:id/deliver', protect, authorize('admin'), markOrderDeliver
 router.get('/admin/:id', protect, authorize('admin'), getOrderDetailsAdmin);
 
 /* =================================
-   2. USER/PAYMENT ROUTES (SPECIFIC)
+   USER / PAYMENT ROUTES
 ================================= */
 router.get('/my', protect, getMyOrders);
 router.post('/checkout', protect, createOrder);
 router.post('/payment/initialize', protect, initializePayment);
-
-// These need specific paths
 router.get('/my/:id', protect, getMyOrder);
 router.patch('/my/:id/payment-reference', protect, addPaymentReference);
 router.put('/payment/confirm/:orderId', protect, authorize('admin'), confirmBankTransferPayment);
 
 /* =================================
-   3. GENERIC / DYNAMIC ROUTES (LAST)
+   DYNAMIC ID ROUTES (Must be last)
 ================================= */
-// Order root
-router.route('/')
-  .post(protect, createOrder)
-  .get(protect, getOrders);
-
-// Dynamic ID routes
 router.put('/:id/status', protect, authorize('admin'), updateOrderStatus);
 router.put('/:id/cancel', protect, cancelOrder);
 router.patch('/:id/confirm-payment', protect, authorize('admin'), confirmBankTransferPayment);
