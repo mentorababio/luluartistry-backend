@@ -65,8 +65,14 @@ router.route('/')
   .post(protect, createOrder)
   .get(protect, getOrders);
 
+// Legacy checkout alias for frontend compatibility
+router.post('/checkout', protect, createOrder);
+
 // Cancel order (user)
 router.put('/:id/cancel', protect, cancelOrder);
+
+// Admin confirms manual transfer payment
+router.patch('/:id/confirm-payment', protect, authorize('admin'), confirmBankTransferPayment);
 
 // Get single order (user) - GENERIC ROUTE LAST
 router.get('/:id', protect, getOrder);

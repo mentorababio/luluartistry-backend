@@ -5,6 +5,12 @@ const ErrorResponse = require('../utils/errorResponse');
 const sendEmail = require('../utils/sendEmail');
 const { orderConfirmationEmail } = require('../utils/emailTemplates');
 
+const generateBankTransferReference = () => {
+  const timestamp = Date.now().toString().slice(-8);
+  const random = Math.floor(1000 + Math.random() * 9000);
+  return `LULU-${timestamp}-${random}`;
+};
+
 // @desc    Create new order
 // @route   POST /api/orders
 // @access  Private
@@ -60,13 +66,15 @@ exports.createOrder = async (req, res, next) => {
     };
 
     if (paymentMethod === 'transfer') {
-      // Bank Transfer: Create order immediately, wait for admin confirmation
+      // Bank transfer orders get a backend-generated reference and wait for admin confirmation
+      const transferReference = generateBankTransferReference();
       orderStatus = 'pending';
-      paymentData.status = 'pending';
+      paymentData.status = 'pending_payment';
+      paymentData.reference = transferReference;
     } else if (paymentMethod === 'paystack') {
-      // Paystack: Create order, mark as pending payment
+      // Paystack: Create order and await payment verification
       orderStatus = 'pending';
-      paymentData.status = 'pending';
+      paymentData.status = 'pending_payment';
     }
 
     // Create order
@@ -133,7 +141,8 @@ exports.createOrder = async (req, res, next) => {
           bankName: process.env.BANK_NAME || 'Your Bank Name',
           accountNumber: process.env.ACCOUNT_NUMBER || 'Your Account Number',
           accountName: process.env.ACCOUNT_NAME || 'Lulu Artistry',
-          amount: total
+          amount: total,
+          paymentReference: order.payment.reference
         }
       })
     });
@@ -196,12 +205,10 @@ exports.getMyOrder = async (req, res, next) => {
 // @access  Private
 exports.addPaymentReference = async (req, res, next) => {
   try {
-    const { reference } = req.body;
+    const { paymentReference, senderName, bankName, amountReceived } = req.body;
 
-    if (!reference) {
-      return next(
-        new ErrorResponse('Payment reference is required', 400)
-      );
+    if (!senderName || !bankName) {
+      return next(new ErrorResponse('Sender name and bank name are required', 400));
     }
 
     const order = await Order.findOne({
@@ -214,15 +221,42 @@ exports.addPaymentReference = async (req, res, next) => {
     }
 
     if (order.payment.method !== 'transfer') {
-      return next(
-        new ErrorResponse('Not a bank transfer order', 400)
-      );
+      return next(new ErrorResponse('Not a bank transfer order', 400));
     }
 
-    order.payment.reference = reference;
-    order.payment.status = 'initiated';
+    if (order.payment.status === 'paid') {
+      return next(new ErrorResponse('Payment has already been confirmed', 400));
+    }
+
+    if (paymentReference && order.payment.reference && paymentReference !== order.payment.reference) {
+      return next(new ErrorResponse('Payment reference does not match the generated reference', 400));
+    }
+
+    order.payment.senderName = senderName;
+    order.payment.bankName = bankName;
+    order.payment.amountReceived = amountReceived || order.pricing.total;
+    order.payment.status = 'payment_submitted';
 
     await order.save();
+
+    if (process.env.ADMIN_EMAIL) {
+      try {
+        await sendEmail({
+          email: process.env.ADMIN_EMAIL,
+          subject: `New bank transfer submitted for order ${order.orderNumber}`,
+          html: `
+            <p>A customer submitted a bank transfer for Order <strong>${order.orderNumber}</strong>.</p>
+            <p>Reference: <strong>${order.payment.reference}</strong></p>
+            <p>Amount: <strong>₦${order.pricing.total}</strong></p>
+            <p>Sender: <strong>${order.payment.senderName}</strong></p>
+            <p>Bank: <strong>${order.payment.bankName}</strong></p>
+            <p><a href="${process.env.ADMIN_DASHBOARD_URL || process.env.FRONTEND_URL}/admin/orders/${order._id}">View order</a></p>
+          `
+        });
+      } catch (emailError) {
+        console.error('Admin notification email failed:', emailError);
+      }
+    }
 
     res.status(200).json({
       success: true,

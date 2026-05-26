@@ -346,7 +346,8 @@ exports.confirmBankTransferPayment = async (req, res, next) => {
 
     // Update order
     order.payment.status = 'paid';
-    order.payment.reference = transactionReference || `BANK-${Date.now()}`;
+    order.payment.reference = order.payment.reference || transactionReference || `BANK-${Date.now()}`;
+    order.payment.amountReceived = amountReceived || order.pricing.total;
     order.payment.paidAt = Date.now();
     order.orderStatus = 'processing';
     

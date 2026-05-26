@@ -62,10 +62,10 @@
 
 | Method | Endpoint | Description | Auth | Status |
 |--------|----------|-------------|------|--------|
-| POST | `/orders` | Create order | ✅ | 201 |
+| POST | `/orders` | Create order and generate bank transfer reference for transfer payments | ✅ | 201 |
 | GET | `/orders/my` | Get my orders | ✅ | 200 |
 | GET | `/orders/my/:id` | Get order details | ✅ | 200 |
-| PATCH | `/orders/my/:id/payment-reference` | Submit bank transfer ref | ✅ | 200 |
+| PATCH | `/orders/my/:id/payment-reference` | Submit bank transfer details and reference confirmation | ✅ | 200 |
 | PUT | `/orders/:id/cancel` | Cancel order | ✅ | 200 |
 | GET | `/orders` | Get orders (legacy) | ✅ | 200 |
 | GET | `/orders/:id` | Get order (legacy) | ✅ | 200 |
@@ -79,8 +79,11 @@
 | POST | `/payment/initialize` | Initialize Paystack payment | ✅ | 200 |
 | GET | `/payment/verify/:reference` | Verify Paystack payment | ❌ | 200 |
 | PUT | `/payment/confirm-bank-transfer/:orderId` | Confirm bank transfer (Admin) | ✅🔐 | 200 |
+| PATCH | `/orders/:id/confirm-payment` | Confirm manual transfer payment (Admin) | ✅🔐 | 200 |
 | POST | `/payment/refund` | Initiate refund (Admin) | ✅🔐 | 200 |
 | POST | `/payment/webhook` | Paystack webhook | ❌ | 200 |
+
+> Note: For manual bank transfer orders, the backend generates a unique `payment.reference` when the order is created. The frontend should display this reference with bank details, and the user submits transfer details via `PATCH /orders/my/:id/payment-reference` before the admin confirms payment.
 
 ---
 

@@ -112,9 +112,13 @@ const OrderSchema = new mongoose.Schema({
     },
     status: {
       type: String,
-      enum: ['pending', 'paid', 'failed', 'refunded'],
-      default: 'pending'
+      enum: ['pending', 'pending_payment', 'payment_submitted', 'paid', 'failed', 'refunded'],
+      default: 'pending_payment'
     },
+    reference: String,
+    senderName: String,
+    bankName: String,
+    amountReceived: Number,
     paymentId: String,
     paidAt: Date,
     paystackReference: String
