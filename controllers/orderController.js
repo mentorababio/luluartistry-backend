@@ -2,8 +2,8 @@
 // @route   POST /api/orders
 // @access  Private
 exports.createOrder = async (req, res, next) => {
-  // DEBUGGING ADDITION: Log the request body to compare against your database
-  console.log("DEBUG: Incoming Request Body:", JSON.stringify(req.body, null, 2));
+  // DEBUGGING: Log incoming items to identify the invalid product ID
+  console.log("DEBUG: Incoming Request Body Items:", JSON.stringify(req.body.items, null, 2));
 
   try {
     const {
@@ -34,12 +34,12 @@ exports.createOrder = async (req, res, next) => {
 
     // Validate stock availability
     for (const item of items) {
-      // THE FIX: Log the specific item product ID we are trying to find
-      console.log("DEBUG: Validating product ID:", item.product);
-      
+      // DEBUGGING: Log the ID being checked against the database
+      console.log("DEBUG: Checking database for product ID:", item.product);
+
       const product = await Product.findById(item.product);
       if (!product) {
-        // This 404 is what you are seeing. It means the ID above does not exist in your DB.
+        // If product is null, the ID sent from frontend does not exist in your MongoDB
         return next(new ErrorResponse(`Product not found: ${item.product}`, 404));
       }
       if (product.stock < item.quantity) {
@@ -47,9 +47,7 @@ exports.createOrder = async (req, res, next) => {
       }
     }
 
-    // ... (rest of your existing logic remains the same)
-    
-    // Calculate pricing
+    // ... (rest of your existing logic remains exactly the same)
     const subtotal = items.reduce((acc, item) => acc + (item.price * item.quantity), 0);
     const shippingCost = deliveryZone.cost;
     const discount = coupon?.discountAmount || 0;
