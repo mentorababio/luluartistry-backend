@@ -92,6 +92,13 @@ app.use('/api/auth', authRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/orders', orderRoutes);
+app.post('/api/test-checkout', (req, res) => {
+  res.json({
+    success: true,
+    message: 'Checkout route works'
+  });
+});
+
 app.use('/api/payment', paymentRoutes);
 app.use('/api/bookings', bookingRoutes);
  
