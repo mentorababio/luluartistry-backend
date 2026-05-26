@@ -86,13 +86,14 @@ app.use((req, res, next) => {
 });
 
 app.use('/uploads', require('./routes/uploadRoutes'));
-app.use('/users', userRoutes);
-app.use('/auth', authRoutes);
-app.use('/products', productRoutes);
-app.use('/categories', categoryRoutes);
-app.use('/orders', orderRoutes); // Matches /api/orders
-app.use('/payment', paymentRoutes);
-app.use('/bookings', bookingRoutes);
+
+app.use('/api/users', userRoutes);
+app.use('/api/auth', authRoutes);
+app.use('/api/products', productRoutes);
+app.use('/api/categories', categoryRoutes);
+app.use('/api/orders', orderRoutes);
+app.use('/api/payment', paymentRoutes);
+app.use('/api/bookings', bookingRoutes);
  
 // ─── 7. Health check & root routes ──────────────────────────────────────────
 app.get('/api/health', (req, res) => {
