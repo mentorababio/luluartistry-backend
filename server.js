@@ -77,6 +77,14 @@ const limiter = rateLimit({
 app.use('/api/', limiter);
  
 // ─── 6. Mount all routes ─────────────────────────────────────────────────────
+// DEBUGGING MIDDLEWARE: Logs orders requests to help identify 404 causes
+app.use((req, res, next) => {
+  if (req.originalUrl.includes('/api/orders')) {
+    console.log(`[DEBUG] Orders Request: ${req.method} ${req.originalUrl}`);
+  }
+  next();
+});
+
 app.use('/api/uploads', require('./routes/uploadRoutes'));
 app.use('/api/users', userRoutes);
 app.use('/api/auth', authRoutes);
@@ -119,9 +127,9 @@ const PORT = process.env.PORT || 5000;
 const server = app.listen(PORT, () => {
   console.log(`
     ╔════════════════════════════════════════╗
-    ║   Lulu Artistry Backend Server         ║
-    ║   Running in ${process.env.NODE_ENV || 'development'} mode           ║
-    ║   Port: ${PORT}                            ║
+    ║  Lulu Artistry Backend Server          ║
+    ║  Running in ${process.env.NODE_ENV || 'development'} mode           ║
+    ║  Port: ${PORT}                            ║
     ╚════════════════════════════════════════╝
   `);
 });
@@ -131,4 +139,3 @@ process.on('unhandledRejection', (err) => {
   console.log(`Error: ${err.message}`);
   server.close(() => process.exit(1));
 });
- 
