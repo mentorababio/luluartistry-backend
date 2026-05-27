@@ -11,7 +11,7 @@ const cookieParser = require('cookie-parser');
 // Load env vars FIRST
 dotenv.config();
  
-// Validate environment variables AFTER loading them
+// Validate environment variables
 const validateEnv = require('./utils/validateEnv');
 validateEnv();
  
@@ -36,7 +36,7 @@ const requestLogger = require('./middleware/requestLogger');
 // Initialize app
 const app = express();
  
-// ─── 1. CORS — must be defined and applied first ────────────────────────────
+// ─── 1. CORS — Explicitly allow Authorization header ─────────────────────────
 const corsOptions = {
   origin: [
     process.env.FRONTEND_URL,
@@ -46,6 +46,8 @@ const corsOptions = {
     'http://localhost:3000'
   ],
   credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'], // FIX: Explicitly allow Authorization header
   optionsSuccessStatus: 200
 };
 app.use(cors(corsOptions));
@@ -71,13 +73,12 @@ if (process.env.NODE_ENV === 'development') {
 // ─── 5. Rate limiting ────────────────────────────────────────────────────────
 app.set('trust proxy', 1);
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
+  windowMs: 15 * 60 * 1000,
   max: 100
 });
 app.use('/api/', limiter);
  
 // ─── 6. Mount all routes ─────────────────────────────────────────────────────
-// DEBUGGING MIDDLEWARE: Logs orders requests to help identify 404 causes
 app.use((req, res, next) => {
   if (req.originalUrl.includes('/api/orders')) {
     console.log(`[DEBUG] Orders Request: ${req.method} ${req.originalUrl}`);
@@ -86,64 +87,28 @@ app.use((req, res, next) => {
 });
 
 app.use('/uploads', require('./routes/uploadRoutes'));
-
 app.use('/api/users', userRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/products', productRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/orders', orderRoutes);
-app.post('/api/test-checkout', (req, res) => {
-  res.json({
-    success: true,
-    message: 'Checkout route works'
-  });
-});
-
 app.use('/api/payment', paymentRoutes);
 app.use('/api/bookings', bookingRoutes);
  
 // ─── 7. Health check & root routes ──────────────────────────────────────────
 app.get('/api/health', (req, res) => {
-  res.status(200).json({
-    success: true,
-    message: 'Lulu Artistry API is running',
-    timestamp: new Date().toISOString()
-  });
+  res.status(200).json({ success: true, message: 'Lulu Artistry API is running' });
 });
  
 app.get('/', (req, res) => {
-  res.json({
-    success: true,
-    message: 'Welcome to Lulu Artistry API',
-    version: '1.0.0',
-    endpoints: {
-      auth: '/api/auth',
-      products: '/api/products',
-      categories: '/api/categories',
-      orders: '/api/orders',
-      bookings: '/api/bookings'
-    }
-  });
+  res.json({ success: true, message: 'Welcome to Lulu Artistry API' });
 });
  
-// ─── 8. Error handler — always absolute last ────────────────────────────────
+// ─── 8. Error handler ────────────────────────────────────────────────────────
 app.use(errorHandler);
  
 // ─── Server startup ──────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 5000;
- 
-const server = app.listen(PORT, () => {
-  console.log(`
-    ╔════════════════════════════════════════╗
-    ║  Lulu Artistry Backend Server          ║
-    ║  Running in ${process.env.NODE_ENV || 'development'} mode           ║
-    ║  Port: ${PORT}                            ║
-    ╚════════════════════════════════════════╝
-  `);
-});
- 
-// Handle unhandled promise rejections
-process.on('unhandledRejection', (err) => {
-  console.log(`Error: ${err.message}`);
-  server.close(() => process.exit(1));
+app.listen(PORT, () => {
+  console.log(`Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
 });
