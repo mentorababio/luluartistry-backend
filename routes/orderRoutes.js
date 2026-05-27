@@ -3,7 +3,7 @@ const router = express.Router();
 
 const {
   createOrder, getOrders, getOrder, updateOrderStatus,
-  cancelOrder, getAllOrders, getMyOrders, getMyOrder, addPaymentReference
+  cancelOrder, getMyOrders, getMyOrder, addPaymentReference
 } = require('../controllers/orderController');
 
 const {
@@ -15,17 +15,19 @@ const { initializePayment, confirmBankTransferPayment } = require('../controller
 const { protect, authorize } = require('../middleware/auth');
 
 /* =================================
-   ROOT ROUTES (Must be first to avoid shadowing)
+   USER / CHECKOUT ROUTES
 ================================= */
-router.route('/')
-  .post(protect, createOrder)
-  .get(protect, getOrders);
+// Explicitly using /checkout to avoid conflicts with root /
+router.post('/checkout', protect, createOrder); 
+router.get('/my', protect, getMyOrders);
+router.get('/my/:id', protect, getMyOrder);
+router.patch('/my/:id/payment-reference', protect, addPaymentReference);
 
 /* =================================
    ADMIN ROUTES
 ================================= */
 router.get('/admin', protect, authorize('admin'), getAllOrdersAdmin);
-router.get('/admin/all', protect, authorize('admin'), getAllOrders);
+router.get('/admin/all', protect, authorize('admin'), getOrders); // Renamed to clarify
 router.get('/admin/:id/history', protect, authorize('admin'), getOrderHistory);
 router.patch('/admin/:id/accept', protect, authorize('admin'), acceptOrder);
 router.patch('/admin/:id/decline', protect, authorize('admin'), declineOrder);
@@ -33,13 +35,9 @@ router.patch('/admin/:id/deliver', protect, authorize('admin'), markOrderDeliver
 router.get('/admin/:id', protect, authorize('admin'), getOrderDetailsAdmin);
 
 /* =================================
-   USER / PAYMENT ROUTES
+   PAYMENT ROUTES
 ================================= */
-router.get('/my', protect, getMyOrders);
-router.post('/checkout', protect, createOrder);
 router.post('/payment/initialize', protect, initializePayment);
-router.get('/my/:id', protect, getMyOrder);
-router.patch('/my/:id/payment-reference', protect, addPaymentReference);
 router.put('/payment/confirm/:orderId', protect, authorize('admin'), confirmBankTransferPayment);
 
 /* =================================

@@ -67,7 +67,7 @@ exports.createOrder = async (req, res, next) => {
         },
         quantity: item.quantity,
         price: itemPrice,
-        subtotal: itemPrice * item.quantity  // ← required by Order schema
+        subtotal: itemPrice * item.quantity   // ← required by Order schema
       });
     }
 
@@ -83,9 +83,7 @@ exports.createOrder = async (req, res, next) => {
       paymentData.reference = generateBankTransferReference();
     }
 
-    // ── Use new Order().save() instead of Order.create() ──────────────────
-    // This triggers the pre('save') hook that auto-generates orderNumber
-    const order = new Order({
+    const order = await Order.create({
       user: req.user ? req.user.id : undefined,
       customerInfo,
       items: enrichedItems,
@@ -100,8 +98,11 @@ exports.createOrder = async (req, res, next) => {
       orderStatus
     });
 
-    await order.save();
-    // ──────────────────────────────────────────────────────────────────────
+    for (const item of enrichedItems) {
+      await Product.findByIdAndUpdate(item.product, {
+        $inc: { stock: -item.quantity, totalSales: item.quantity }
+      });
+    }
 
     if (req.user) {
       try { await Cart.findOneAndDelete({ user: req.user.id }); }
@@ -118,8 +119,8 @@ exports.createOrder = async (req, res, next) => {
         : 'Order created. Please complete payment.',
       ...(paymentMethod === 'transfer' && {
         bankDetails: {
-          bankName: process.env.BANK_NAME || 'GTBank',
-          accountNumber: process.env.ACCOUNT_NUMBER || '0123456789',
+          bankName: process.env.BANK_NAME || 'Your Bank Name',
+          accountNumber: process.env.ACCOUNT_NUMBER || 'Your Account Number',
           accountName: process.env.ACCOUNT_NAME || 'Lulu Artistry',
           amount: total,
           paymentReference: order.payment.reference
@@ -162,6 +163,7 @@ exports.getOrder = async (req, res, next) => {
       return next(new ErrorResponse('Order not found', 404));
     }
 
+    // Only allow admin or order owner
     if (order.user && order.user._id.toString() !== req.user.id && req.user.role !== 'admin') {
       return next(new ErrorResponse('Not authorized to access this order', 403));
     }
