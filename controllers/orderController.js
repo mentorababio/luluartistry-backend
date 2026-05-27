@@ -1,8 +1,7 @@
 // @desc    Create new order
-// @route   POST /api/orders
+// @route   POST /api/orders/checkout
 // @access  Private
 exports.createOrder = async (req, res, next) => {
-  // DEBUGGING: Log incoming items to identify the invalid product ID
   console.log("DEBUG: Incoming Request Body Items:", JSON.stringify(req.body.items, null, 2));
 
   try {
@@ -34,12 +33,21 @@ exports.createOrder = async (req, res, next) => {
 
     // Validate stock availability
     for (const item of items) {
-      // DEBUGGING: Log the ID being checked against the database
       console.log("DEBUG: Checking database for product ID:", item.product);
+
+      // ── FIX: Validate ObjectId format before querying MongoDB ──────────────
+      // Cart items from static pages (home, new-arrivals) use numeric IDs like "1", "2"
+      // instead of real MongoDB ObjectIds. This caused a CastError → 404.
+      if (!mongoose.Types.ObjectId.isValid(item.product)) {
+        return next(new ErrorResponse(
+          `Invalid product ID "${item.product}". Please add products from the Shop page to get correct IDs.`,
+          400
+        ));
+      }
+      // ───────────────────────────────────────────────────────────────────────
 
       const product = await Product.findById(item.product);
       if (!product) {
-        // If product is null, the ID sent from frontend does not exist in your MongoDB
         return next(new ErrorResponse(`Product not found: ${item.product}`, 404));
       }
       if (product.stock < item.quantity) {
@@ -47,7 +55,6 @@ exports.createOrder = async (req, res, next) => {
       }
     }
 
-    // ... (rest of your existing logic remains exactly the same)
     const subtotal = items.reduce((acc, item) => acc + (item.price * item.quantity), 0);
     const shippingCost = deliveryZone.cost;
     const discount = coupon?.discountAmount || 0;
