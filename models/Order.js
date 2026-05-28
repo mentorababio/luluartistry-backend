@@ -1,11 +1,12 @@
 const mongoose = require('mongoose');
 
 const OrderSchema = new mongoose.Schema({
-  orderNumber: {
-    type: String,
-    unique: true,
-    required: true
-  },
+ // AFTER
+orderNumber: {
+  type: String,
+  unique: true,
+  required: false
+},
   user: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
