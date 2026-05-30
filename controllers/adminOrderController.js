@@ -77,12 +77,14 @@ exports.acceptOrder = async (req, res, next) => {
       );
     }
 
-    order.orderStatus = 'processing';
+   order.orderStatus = 'processing';
+order.payment.status = 'paid';
+order.payment.paidAt = new Date();
 
-    order.statusHistory.push({
-      status: 'processing',
-      note: 'Order accepted by admin'
-    });
+order.statusHistory.push({
+  status: 'processing',
+  note: 'Order accepted and payment confirmed by admin'
+});
 
     await order.save();
 
@@ -162,13 +164,15 @@ exports.markOrderDelivered = async (req, res, next) => {
       );
     }
 
-    order.orderStatus = 'delivered';
-    order.deliveredAt = Date.now();
+  order.orderStatus = 'delivered';
+order.deliveredAt = Date.now();
+order.payment.status = 'paid';
+order.payment.paidAt = order.payment.paidAt || new Date();
 
-    order.statusHistory.push({
-      status: 'delivered',
-      note: 'Order delivered successfully'
-    });
+order.statusHistory.push({
+  status: 'delivered',
+  note: 'Order delivered successfully'
+});
 
     await order.save();
 
