@@ -1,180 +1,223 @@
-// ============================================================
-// seed-products.js
-// Run this ONCE from your backend folder:
-//   node seed-products.js
-// ============================================================
 
+require('dotenv').config({ path: './.env' }); // Ensure it points to your .env file
+// Run from backend folder: node seed-images.js
 const https = require('https');
+const http = require('http');
+const fs = require('fs');
+const path = require('path');
+const FormData = require('form-data');
 
 const BASE_URL = 'https://luluartistry-backend.onrender.com/api';
+const UPLOAD_URL = 'https://luluartistry-backend.onrender.com/uploads/products';
 const ADMIN_EMAIL = 'blessinglucy321@gmail.com';
 const ADMIN_PASSWORD = 'Blessinglulu@321';
 
-// ── Hardcoded category IDs from your live database ────────────────────────────
-const CAT = {
-  lashes:  '694c7bd20d9b673c2478a38f',
-  tattoos: '694c7bd20d9b673c2478a390',
-  brows:   '694c7bd20d9b673c2478a391',
-  spa:     '694c7bd20d9b673c2478a392',
-  // Tools don't have their own category — mapped to lashes (equipment used in lash services)
-  tools:   '694c7bd20d9b673c2478a38f',
+// ... IMAGE_MAP remains the same as in your provided code ...
+const IMAGE_MAP = {
+  'Moon Light Tray': 'src/assets/images/moon light tray.png',
+  'Stool': 'src/assets/images/stool.png',
+  'Lash Bed': 'src/assets/images/lash bed.png',
+  'Disposable Bed Cover': 'src/assets/images/DBed cover.png',
+  'Glove': 'src/assets/images/Glove.png',
+  'One Battery Tattoo Machine': 'src/assets/images/One BTM.png',
+  'Two Battery Tattoo Machine': 'src/assets/images/two btm.png',
+  'Moon Light 26 Inches': 'src/assets/images/moon light inches.png',
+  'Eye Patch': 'src/assets/images/eye patch.png',
+  'Lash Bed Blanket': 'src/assets/images/lash bed blanket.png',
+  'Brow Mapping Pen': 'src/assets/images/brow mapping pen.png',
+  'Lash Wash Brush': 'src/assets/images/lash wash brush.png',
+  'IB Primer': 'src/assets/images/Ib primer.png',
+  'Brow Sealant': 'src/assets/images/brow sealant.png',
+  'Dummy Head': 'src/assets/images/Dummy head.png',
+  'Double Arm Light': 'src/assets/images/Double ARM LIGHT.png',
+  'Easy Lash Fan Tray': 'src/assets/images/Easy lash fan tray.png',
+  'Classic Lash Fan': 'src/assets/images/classic lash fan.png',
+  'Lash Glue 10ml': 'src/assets/images/lash glue ten.png',
+  'Lash Glue 5ml': 'src/assets/images/lash glue five.png',
+  'Lash Breathable Tape': 'src/assets/images/lash breathable table.png',
+  'Lash Transparent Tape': 'src/assets/images/lash trans tape.png',
+  'Volume Tweezer': 'src/assets/images/volume tweezer.png',
+  'Fiber Tip Tweezer': 'src/assets/images/fiber tip tweezer.png',
+  'Lash Fan': 'src/assets/images/lash fan.png',
+  'Glue Ring': 'src/assets/images/glue ring.png',
+  'Curved Isolation Tweezer': 'src/assets/images/curvad isolation.png',
+  'Lash Sealant': 'src/assets/images/lash sealant.png',
+  'Glue Storage': 'src/assets/images/Glue Storage.png',
+  'Mast P60 Machine': 'src/assets/images/P60.png',
+  'One Battery Tattoo Machine Cover': 'src/assets/images/One BTM cover.png',
+  'F&E Primary Cream': 'src/assets/images/FandE (1).png',
+  'Golden Rose Anesthe': 'src/assets/images/GoldenRose.png',
+  'Tag 45 Secondary Numb': 'src/assets/images/tag45.png',
+  'Primary Numb Cream': 'src/assets/images/numb.png',
+  'Mast Pro Cartridge 20pcs': 'src/assets/images/mastpro.png',
+  'Mapping Strings': 'src/assets/images/mapping string.png',
+  'Luxury Spa Body Oil': 'src/assets/images/Luxury spa body oil.png',
+  'Herbal Bath Salt': 'src/assets/images/Herbal Bath salts.png',
+  'Aromatherapy Candle': 'src/assets/images/Aromatherapy.png',
+  'Green Tea Facial Mask': 'src/assets/images/green tea.png',
+  'Exfoliating Body Scrub': 'src/assets/images/ExScrup.png',
+  'Rose Quartz Facial Roll': 'src/assets/images/Rose QFR.png',
+  'Clay Detox Mask': 'src/assets/images/clay detox.png',
+  'Cooling Eye Gel Pad': 'src/assets/images/cooling eye.png',
+  'Eucalyptus Shower Steamer': 'src/assets/images/Eucalyptus.png',
+  'Coconut Milk Bath Soak': 'src/assets/images/coconut milk.png',
+  'Luxury Foot Scrub': 'src/assets/images/Foot scrub.png',
+  'Silk Sleep Mask': 'src/assets/images/Silk sleep.png',
+  'Detox Herbal Tea Blend': 'src/assets/images/Detox.png',
+  'Body Massage Balm': 'src/assets/images/message balm.png',
+  'Hydrating Sheet Mask': 'src/assets/images/Hydrating sheet.png',
+  'Luxury Spa Towel Set': 'src/assets/images/spa towel set.png',
+  'Rose Infused Toner Mist': 'src/assets/images/rose.png',
+  'Spa Incense Sticks': 'src/assets/images/spa incense.png',
+  'Luxury Spa Gift Set': 'src/assets/images/luxury spa gift.png',
 };
 
-// ── Helper: HTTP request ──────────────────────────────────────────────────────
-function request(method, path, body, token) {
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+function request(method, urlStr, body, token) {
   return new Promise((resolve, reject) => {
-    const url = new URL(BASE_URL + path);
+    const url = new URL(urlStr);
+    const isHttps = url.protocol === 'https:';
+    const lib = isHttps ? https : http;
     const payload = body ? JSON.stringify(body) : null;
     const headers = {
       'Content-Type': 'application/json',
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...(payload ? { 'Content-Length': Buffer.byteLength(payload) } : {})
     };
-
-    const req = https.request({
-      hostname: url.hostname,
-      port: 443,
-      path: url.pathname + url.search,
-      method,
-      headers
+    const req = lib.request({
+      hostname: url.hostname, port: isHttps ? 443 : 80,
+      path: url.pathname + url.search, method, headers
     }, (res) => {
       let data = '';
-      res.on('data', chunk => data += chunk);
+      res.on('data', c => data += c);
       res.on('end', () => {
         try { resolve({ status: res.statusCode, body: JSON.parse(data) }); }
         catch { resolve({ status: res.statusCode, body: data }); }
       });
     });
-
     req.on('error', reject);
     if (payload) req.write(payload);
     req.end();
   });
 }
 
-function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
-
-// ── Login ─────────────────────────────────────────────────────────────────────
 async function login() {
   console.log('🔐 Logging in...');
-  const res = await request('POST', '/auth/login', {
-    email: ADMIN_EMAIL,
-    password: ADMIN_PASSWORD
+  const res = await request('POST', `${BASE_URL}/auth/login`, {
+    email: ADMIN_EMAIL, password: ADMIN_PASSWORD
   });
-  if (res.status !== 200 || !res.body?.token) {
-    throw new Error(`Login failed: ${JSON.stringify(res.body)}`);
-  }
-  console.log('✅ Login successful\n');
+  if (!res.body?.token) throw new Error(`Login failed: ${JSON.stringify(res.body)}`);
+  console.log('✅ Logged in\n');
   return res.body.token;
 }
 
-// ── All 66 products ───────────────────────────────────────────────────────────
-const PRODUCTS = [
-  // ── TOOLS (mapped to Lashes category) ──────────────────────────────────────
-  { name: 'Moon Light Tray',                  category: CAT.tools,   price: 20000,  stock: 20,  isFeatured: true,  description: 'Professional moon light tray for lash services.' },
-  { name: 'Stool',                            category: CAT.tools,   price: 40000,  stock: 15,  isFeatured: true,  description: 'Professional salon stool.' },
-  { name: 'Lash Bed',                         category: CAT.tools,   price: 230000, stock: 10,  isFeatured: true,  description: 'Professional lash bed for comfortable client positioning during lash extension services.' },
-  { name: 'Disposable Bed Cover',             category: CAT.tools,   price: 24000,  stock: 50,  isFeatured: false, description: 'Hygienic disposable bed cover for maintaining cleanliness during beauty services.' },
-  { name: 'Glove',                            category: CAT.tools,   price: 13000,  stock: 30,  isFeatured: false, description: 'Professional disposable gloves for beauty services.' },
-  { name: 'One Battery Tattoo Machine',       category: CAT.tools,   price: 55000,  stock: 15,  isFeatured: false, description: 'Professional single battery tattoo machine for precise and consistent work.' },
-  { name: 'Two Battery Tattoo Machine',       category: CAT.tools,   price: 45000,  stock: 15,  isFeatured: false, description: 'Dual battery tattoo machine for extended operation and consistent performance.' },
-  { name: 'Moon Light 26 Inches',             category: CAT.tools,   price: 130000, stock: 10,  isFeatured: true,  description: 'Professional 26-inch moon light tray for lash services.' },
-  { name: 'Eye Patch',                        category: CAT.tools,   price: 5000,   stock: 100, isFeatured: false, description: 'Protective eye patches for safe beauty treatments and procedures.' },
-  { name: 'Lash Bed Blanket',                 category: CAT.tools,   price: 25000,  stock: 30,  isFeatured: false, description: 'Comfortable blanket for lash bed to enhance client comfort during treatments.' },
-  { name: 'Brow Mapping Pen',                 category: CAT.tools,   price: 4500,   stock: 50,  isFeatured: true,  description: 'Professional brow mapping pen for precise brow design and symmetry.' },
-  { name: 'Lash Wash Brush',                  category: CAT.tools,   price: 2000,   stock: 50,  isFeatured: false, description: 'Gentle brush for cleaning and maintaining lash extensions.' },
-  { name: 'IB Primer',                        category: CAT.tools,   price: 10000,  stock: 30,  isFeatured: true,  description: 'Professional primer for improved product adherence and long-lasting results.' },
-  { name: 'Brow Sealant',                     category: CAT.tools,   price: 10000,  stock: 30,  isFeatured: false, description: 'Long-lasting brow sealant to keep brows in place all day.' },
-  { name: 'Dummy Head',                       category: CAT.tools,   price: 6500,   stock: 20,  isFeatured: false, description: 'Professional training dummy head for practicing lash and brow techniques.' },
-  { name: 'Double Arm Light',                 category: CAT.tools,   price: 65000,  stock: 10,  isFeatured: true,  description: 'Professional double arm adjustable lighting for optimal visibility during treatments.' },
+async function getProducts(token) {
+  const res = await request('GET', `${BASE_URL}/products?limit=200`, null, token);
+  return res.body?.data?.products || res.body?.data || [];
+}
 
-  // ── LASHES ──────────────────────────────────────────────────────────────────
-  { name: 'Easy Lash Fan Tray',               category: CAT.lashes,  price: 9000,   stock: 30,  isFeatured: false, description: 'Easy lash fan tray for professional lash application.' },
-  { name: 'Classic Lash Fan',                 category: CAT.lashes,  price: 9000,   stock: 30,  isFeatured: false, description: 'Classic lash fan for professional lash application.' },
-  { name: 'Lash Glue 10ml',                   category: CAT.lashes,  price: 20000,  stock: 30,  isFeatured: false, description: 'Professional lash glue 10ml for long-lasting lash extensions.' },
-  { name: 'Lash Glue 5ml',                    category: CAT.lashes,  price: 16000,  stock: 30,  isFeatured: false, description: 'Professional lash glue 5ml for lash extensions.' },
-  { name: 'Lash Breathable Tape',             category: CAT.lashes,  price: 1200,   stock: 50,  isFeatured: false, description: 'Breathable tape for lash extension application.' },
-  { name: 'Lash Transparent Tape',            category: CAT.lashes,  price: 1000,   stock: 50,  isFeatured: false, description: 'Transparent tape for lash extension application.' },
-  { name: 'Volume Tweezer',                   category: CAT.lashes,  price: 7500,   stock: 20,  isFeatured: false, description: 'Professional volume tweezer for lash extensions.' },
-  { name: 'Fiber Tip Tweezer',                category: CAT.lashes,  price: 8000,   stock: 20,  isFeatured: false, description: 'Professional fiber tip tweezer for lash extensions.' },
-  { name: 'Lash Fan',                         category: CAT.lashes,  price: 6500,   stock: 20,  isFeatured: false, description: 'Professional lash fan for lash extension application.' },
-  { name: 'Glue Ring',                        category: CAT.lashes,  price: 5000,   stock: 30,  isFeatured: false, description: 'Glue ring for lash extension application.' },
-  { name: 'Curved Isolation Tweezer',         category: CAT.lashes,  price: 7000,   stock: 20,  isFeatured: false, description: 'Curved isolation tweezer for precise lash extension application.' },
-  { name: 'Lash Sealant',                     category: CAT.lashes,  price: 8000,   stock: 30,  isFeatured: false, description: 'Professional lash sealant for long-lasting lash extensions.' },
-  { name: 'Glue Storage',                     category: CAT.lashes,  price: 5000,   stock: 30,  isFeatured: false, description: 'Professional glue storage for lash extension adhesives.' },
-
-  // ── TATTOOS ─────────────────────────────────────────────────────────────────
-  { name: 'Mast P60 Machine',                 category: CAT.tattoos, price: 450000, stock: 5,   isFeatured: false, description: 'Professional Mast P60 tattoo machine.' },
-  { name: 'One Battery Tattoo Machine',       category: CAT.tattoos, price: 55000,  stock: 15,  isFeatured: true,  description: 'Professional single battery tattoo machine for precise and consistent work.' },
-  { name: 'Two Battery Tattoo Machine',       category: CAT.tattoos, price: 45000,  stock: 15,  isFeatured: false, description: 'Dual battery tattoo machine for extended operation.' },
-  { name: 'One Battery Tattoo Machine Cover', category: CAT.tattoos, price: 500,    stock: 50,  isFeatured: false, description: 'Protective cover for one battery tattoo machine.' },
-  { name: 'F&E Primary Cream',                category: CAT.tattoos, price: 18000,  stock: 30,  isFeatured: false, description: 'F&E primary cream for tattoo procedures.' },
-  { name: 'Golden Rose Anesthe',              category: CAT.tattoos, price: 10000,  stock: 30,  isFeatured: false, description: 'Golden Rose anaesthetic cream for tattoo procedures.' },
-  { name: 'Tag 45 Secondary Numb',            category: CAT.tattoos, price: 15000,  stock: 30,  isFeatured: false, description: 'Tag 45 secondary numbing cream for tattoo procedures.' },
-  { name: 'Primary Numb Cream',               category: CAT.tattoos, price: 15000,  stock: 30,  isFeatured: false, description: 'Primary numbing cream for tattoo procedures.' },
-  { name: 'Mast Pro Cartridge 20pcs',         category: CAT.tattoos, price: 28000,  stock: 20,  isFeatured: false, description: 'Mast Pro tattoo cartridges, pack of 20.' },
-  { name: 'Mapping Strings',                  category: CAT.tattoos, price: 15000,  stock: 30,  isFeatured: false, description: 'Professional mapping strings for tattoo and brow procedures.' },
-
-  // ── BROWS ────────────────────────────────────────────────────────────────────
-  { name: 'Brow Mapping Pen',                 category: CAT.brows,   price: 4500,   stock: 50,  isFeatured: true,  description: 'Professional brow mapping pen for precise brow design and symmetry.' },
-  { name: 'Brow Sealant',                     category: CAT.brows,   price: 10000,  stock: 30,  isFeatured: false, description: 'Long-lasting brow sealant to keep brows in place all day.' },
-
-  // ── SPA ──────────────────────────────────────────────────────────────────────
-  { name: 'Luxury Spa Body Oil',              category: CAT.spa,     price: 18000,  stock: 30,  isFeatured: true,  description: 'Luxury spa body oil for smooth, radiant skin.' },
-  { name: 'Herbal Bath Salt',                 category: CAT.spa,     price: 12500,  stock: 30,  isFeatured: true,  description: 'Herbal bath salts for a relaxing spa experience.' },
-  { name: 'Aromatherapy Candle',              category: CAT.spa,     price: 10000,  stock: 30,  isFeatured: true,  description: 'Aromatherapy candle for a relaxing spa atmosphere.' },
-  { name: 'Green Tea Facial Mask',            category: CAT.spa,     price: 14000,  stock: 30,  isFeatured: true,  description: 'Green tea facial mask for glowing skin.' },
-  { name: 'Exfoliating Body Scrub',           category: CAT.spa,     price: 14000,  stock: 30,  isFeatured: true,  description: 'Gentle exfoliating body scrub for smooth, radiant skin.' },
-  { name: 'Rose Quartz Facial Roll',          category: CAT.spa,     price: 12000,  stock: 30,  isFeatured: false, description: 'Premium rose quartz facial roller for reducing puffiness and promoting circulation.' },
-  { name: 'Clay Detox Mask',                  category: CAT.spa,     price: 13000,  stock: 30,  isFeatured: true,  description: 'Clay detox mask for deep cleansing and purifying skin.' },
-  { name: 'Cooling Eye Gel Pad',              category: CAT.spa,     price: 11000,  stock: 30,  isFeatured: false, description: 'Cooling eye gel pad for reducing puffiness and dark circles.' },
-  { name: 'Eucalyptus Shower Steamer',        category: CAT.spa,     price: 10000,  stock: 30,  isFeatured: false, description: 'Eucalyptus shower steamer for a refreshing spa experience.' },
-  { name: 'Coconut Milk Bath Soak',           category: CAT.spa,     price: 16000,  stock: 30,  isFeatured: false, description: 'Coconut milk bath soak for soft, moisturised skin.' },
-  { name: 'Luxury Foot Scrub',                category: CAT.spa,     price: 13000,  stock: 30,  isFeatured: false, description: 'Luxury foot scrub for smooth, soft feet.' },
-  { name: 'Silk Sleep Mask',                  category: CAT.spa,     price: 10500,  stock: 30,  isFeatured: false, description: 'Silk sleep mask for a restful night\'s sleep.' },
-  { name: 'Detox Herbal Tea Blend',           category: CAT.spa,     price: 11000,  stock: 30,  isFeatured: false, description: 'Detox herbal tea blend for a healthy, refreshing drink.' },
-  { name: 'Body Massage Balm',                category: CAT.spa,     price: 16000,  stock: 30,  isFeatured: false, description: 'Body massage balm for relaxing and soothing tired muscles.' },
-  { name: 'Hydrating Sheet Mask',             category: CAT.spa,     price: 14000,  stock: 30,  isFeatured: false, description: 'Hydrating sheet mask for glowing, moisturised skin.' },
-  { name: 'Luxury Spa Towel Set',             category: CAT.spa,     price: 20000,  stock: 20,  isFeatured: false, description: 'Luxury spa towel set for a professional spa experience.' },
-  { name: 'Rose Infused Toner Mist',          category: CAT.spa,     price: 14000,  stock: 30,  isFeatured: false, description: 'Rose infused toner mist for hydrated, glowing skin.' },
-  { name: 'Spa Incense Sticks',               category: CAT.spa,     price: 10000,  stock: 30,  isFeatured: false, description: 'Spa incense sticks for a relaxing atmosphere.' },
-  { name: 'Luxury Spa Gift Set',              category: CAT.spa,     price: 28000,  stock: 15,  isFeatured: false, description: 'Luxury spa gift set — the perfect treat.' },
-];
-
-// ── Seed ──────────────────────────────────────────────────────────────────────
-async function seed(token) {
-  console.log(`🌱 Seeding ${PRODUCTS.length} products...\n`);
-  let success = 0, failed = 0, failedNames = [];
-
-  for (const product of PRODUCTS) {
-    const res = await request('POST', '/products', product, token);
-    if (res.status === 201 || res.status === 200) {
-      console.log(`✅ ${product.name}`);
-      success++;
-    } else {
-      const err = res.body?.error || res.body?.message || JSON.stringify(res.body);
-      console.log(`❌ ${product.name} — ${err}`);
-      failed++;
-      failedNames.push(product.name);
+async function uploadImage(imagePath, token) {
+  return new Promise((resolve) => {
+    const fullPath = path.resolve(imagePath);
+    if (!fs.existsSync(fullPath)) {
+      console.log(`   ! File not found: ${fullPath}`);
+      return resolve(null);
     }
-    await sleep(400);
-  }
 
-  console.log('\n══════════════════════════════════════');
-  console.log(`✅ Created: ${success}`);
-  console.log(`❌ Failed:  ${failed}`);
-  if (failedNames.length) console.log(`\nFailed:\n  ${failedNames.join('\n  ')}`);
-  console.log('══════════════════════════════════════');
-  console.log('\n🎉 Done! Now run fetch-product-ids.js in the browser console to get the real IDs.');
+    const form = new FormData();
+    form.append('images', fs.createReadStream(fullPath));
+
+    const url = new URL(UPLOAD_URL);
+    const options = {
+      hostname: url.hostname,
+      port: 443,
+      path: url.pathname,
+      method: 'POST',
+      headers: { ...form.getHeaders(), Authorization: `Bearer ${token}` }
+    };
+
+    const req = https.request(options, (res) => {
+      let data = '';
+      res.on('data', c => data += c);
+      res.on('end', () => {
+        if (res.statusCode >= 200 && res.statusCode < 300) {
+          try {
+            const json = JSON.parse(data);
+            const imageUrl = json?.images?.[0]?.url || json?.data?.[0]?.url;
+            resolve(imageUrl || null);
+          } catch { resolve(null); }
+        } else {
+          console.error(`   ! Server rejected upload. Status: ${res.statusCode}`);
+          console.error(`   ! Server response: ${data}`);
+          resolve(null);
+        }
+      });
+    });
+
+    req.on('error', (err) => {
+      console.error(`   ! Request error: ${err.message}`);
+      resolve(null);
+    });
+
+    form.pipe(req);
+  });
+}
+
+async function updateProduct(productId, imageUrl, token) {
+  return await request('PUT', `${BASE_URL}/products/${productId}`, {
+    images: [{ url: imageUrl, alt: 'Product image' }]
+  }, token);
 }
 
 async function main() {
   try {
     const token = await login();
-    await seed(token);
+    const products = await getProducts(token);
+    console.log(`📦 Found ${products.length} products\n`);
+
+    let success = 0, skipped = 0, failed = 0;
+
+    for (const product of products) {
+      if (product.images && product.images.length > 0 && product.images[0].url) {
+        skipped++;
+        continue;
+      }
+
+      const imagePath = IMAGE_MAP[product.name];
+      if (!imagePath) {
+        console.log(`❓ No image mapped for: ${product.name}`);
+        skipped++;
+        continue;
+      }
+
+      console.log(`⬆️  Uploading image for: ${product.name}...`);
+      const imageUrl = await uploadImage(imagePath, token);
+
+      if (!imageUrl) {
+        console.log(`❌ Upload failed for: ${product.name}`);
+        failed++;
+        continue;
+      }
+
+      const updateRes = await updateProduct(product._id || product.id, imageUrl, token);
+      if (updateRes.status === 200) {
+        console.log(`✅ Updated: ${product.name}`);
+        success++;
+      } else {
+        console.log(`❌ Update failed: ${product.name}`);
+        failed++;
+      }
+      await sleep(500);
+    }
+
+    console.log('\n══════════════════════════════════');
+    console.log(`✅ Success: ${success}`);
+    console.log(`⏭️  Skipped: ${skipped}`);
+    console.log(`❌ Failed:  ${failed}`);
+    console.log('══════════════════════════════════');
   } catch (err) {
     console.error('💥 Fatal:', err.message);
-    process.exit(1);
   }
 }
 
