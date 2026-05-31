@@ -178,7 +178,9 @@ exports.updateProduct = async (req, res, next) => {
   }
 };
 
-// @desc    Delete product
+// ── REPLACE ONLY THESE TWO FUNCTIONS in your productController.js ─────────────
+
+// @desc    Delete product (HARD DELETE — actually removes from DB)
 // @route   DELETE /api/products/:id
 // @access  Private/Admin
 exports.deleteProduct = async (req, res, next) => {
@@ -189,13 +191,55 @@ exports.deleteProduct = async (req, res, next) => {
       return next(new ErrorResponse('Product not found', 404));
     }
 
-    // Soft delete - just set isActive to false
-    product.isActive = false;
-    await product.save();
+    // ── FIX: hard delete so slug is freed and product can be re-added ────────
+    // Old code did: product.isActive = false — slug stayed, re-add failed
+    await Product.findByIdAndDelete(req.params.id);
+    // ─────────────────────────────────────────────────────────────────────────
+
+    // Also delete images from Cloudinary
+    if (product.images && product.images.length > 0) {
+      for (const img of product.images) {
+        if (img.publicId) {
+          try { await cloudinary.uploader.destroy(img.publicId); }
+          catch (e) { console.error('Cloudinary delete error:', e.message); }
+        }
+      }
+    }
 
     res.status(200).json({
       success: true,
       message: 'Product deleted successfully'
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// @desc    Create new product
+// @route   POST /api/products
+// @access  Private/Admin
+exports.createProduct = async (req, res, next) => {
+  try {
+    const { name, price, category, images, description, stock } = req.body;
+
+    if (!name || !price || !category) {
+      return next(new ErrorResponse('Please provide product name, price and category', 400));
+    }
+
+    const product = await Product.create({
+      ...req.body,
+      images: images || [],
+      isActive: true,
+      isFeatured: false
+    });
+
+    // ── FIX: populate category so response includes category name ─────────────
+    await product.populate('category', 'name slug');
+    // ─────────────────────────────────────────────────────────────────────────
+
+    res.status(201).json({
+      success: true,
+      data: product
     });
   } catch (error) {
     next(error);
