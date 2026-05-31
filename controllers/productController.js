@@ -118,41 +118,6 @@ exports.getProduct = async (req, res, next) => {
   }
 };
 
-// @desc    Create new product
-// @route   POST /api/products
-// @access  Private/Admin
-exports.createProduct = async (req, res, next) => {
-  try {
-    const { name, price, category, images } = req.body;
-
-    // Basic validation (important for JSON)
-    if (!name || !price || !category) {
-      return next(
-        new ErrorResponse(
-          'Please provide product name, price and category',
-          400
-        )
-      );
-    }
-
-    const product = await Product.create({
-      ...req.body,
-
-      // IMPORTANT: ensure frontend JSON does not hide products
-      images: images || [],
-      isActive: true,        // force visible by default
-      isFeatured: false     // admin can toggle later
-    });
-
-    res.status(201).json({
-      success: true,
-      data: product
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
 // @desc    Update product
 // @route   PUT /api/products/:id
 // @access  Private/Admin
