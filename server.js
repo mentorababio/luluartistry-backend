@@ -1,3 +1,7 @@
+require('dotenv').config();
+console.log("DEBUG: Cloudinary Name from env:", process.env.CLOUDINARY_CLOUD_NAME);
+const dns = require('node:dns');
+dns.setServers(['8.8.8.8', '1.1.1.1']);
 const express = require('express');
 const dotenv = require('dotenv');
 const cors = require('cors');
