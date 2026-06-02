@@ -18,4 +18,5 @@ const uploadToCloudinary = async (buffer, folder) => {
     });
 };
 
+
 module.exports = { upload, uploadToCloudinary };

@@ -152,7 +152,7 @@ const ProductSchema = new mongoose.Schema({
 // Create slug before saving
 ProductSchema.pre('save', function(next) {
   if (this.isModified('name')) {
-    this.slug = slugify(this.name, { lower: true, strict: true });
+    this.slug = slugify(this.name, { lower: true, strict: true }) + '-' + Date.now();
   }
   next();
 });

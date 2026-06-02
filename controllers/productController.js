@@ -191,6 +191,14 @@ exports.createProduct = async (req, res, next) => {
       return next(new ErrorResponse('Please provide product name, price and category', 400));
     }
 
+    // ── FIX: check for inactive product with same slug and delete it first ──
+    const slugify = require('slugify');
+    const slug = slugify(name, { lower: true, strict: true });
+    
+    // Remove any inactive/orphaned product with the same slug
+    await Product.deleteOne({ slug, isActive: false });
+    // ────────────────────────────────────────────────────────────────────────
+
     const product = await Product.create({
       ...req.body,
       images: images || [],
@@ -198,19 +206,23 @@ exports.createProduct = async (req, res, next) => {
       isFeatured: false
     });
 
-    // ── FIX: populate category so response includes category name ─────────────
     await product.populate('category', 'name slug');
-    // ─────────────────────────────────────────────────────────────────────────
 
     res.status(201).json({
       success: true,
       data: product
     });
   } catch (error) {
+    // ── FIX: handle duplicate slug error with helpful message ─────────────
+    if (error.code === 11000 && error.keyPattern?.slug) {
+      return next(new ErrorResponse(
+        `A product with the name "${req.body.name}" already exists. Please use a different name or contact support.`,
+        400
+      ));
+    }
     next(error);
   }
 };
-
 // @desc    Get featured products
 // @route   GET /api/products/featured/all
 // @access  Public
