@@ -185,44 +185,37 @@ exports.deleteProduct = async (req, res, next) => {
 // @access  Private/Admin
 exports.createProduct = async (req, res, next) => {
   try {
-    const { name, price, category, images, description, stock } = req.body;
+    let uploadedImages = [];
 
-    if (!name || !price || !category) {
-      return next(new ErrorResponse('Please provide product name, price and category', 400));
+    // 1. Check if files exist (caught by the Multer middleware we added)
+    if (req.files && req.files.length > 0) {
+      for (const file of req.files) {
+        // 2. Upload the file to Cloudinary
+        const result = await cloudinary.uploader.upload(file.path, {
+          folder: 'luluartistry/products'
+        });
+        
+        // 3. Store the permanent URL and ID
+        uploadedImages.push({
+          url: result.secure_url,
+          publicId: result.public_id
+        });
+      }
     }
 
-    // ── FIX: check for inactive product with same slug and delete it first ──
-    const slugify = require('slugify');
-    const slug = slugify(name, { lower: true, strict: true });
-    
-    // Remove any inactive/orphaned product with the same slug
-    await Product.deleteOne({ slug, isActive: false });
-    // ────────────────────────────────────────────────────────────────────────
-
+    // 4. Create the product with the REAL Cloudinary URLs
     const product = await Product.create({
       ...req.body,
-      images: images || [],
-      isActive: true,
-      isFeatured: false
+      images: uploadedImages, // Now using the permanent URLs
+      isActive: true
     });
 
-    await product.populate('category', 'name slug');
-
-    res.status(201).json({
-      success: true,
-      data: product
-    });
+    res.status(201).json({ success: true, data: product });
   } catch (error) {
-    // ── FIX: handle duplicate slug error with helpful message ─────────────
-    if (error.code === 11000 && error.keyPattern?.slug) {
-      return next(new ErrorResponse(
-        `A product with the name "${req.body.name}" already exists. Please use a different name or contact support.`,
-        400
-      ));
-    }
     next(error);
   }
 };
+
 // @desc    Get featured products
 // @route   GET /api/products/featured/all
 // @access  Public
