@@ -1,7 +1,6 @@
-require('dotenv').config();
-console.log("DEBUG: Cloudinary Name from env:", process.env.CLOUDINARY_CLOUD_NAME);
 const dns = require('node:dns');
 dns.setServers(['8.8.8.8', '1.1.1.1']);
+
 const express = require('express');
 const dotenv = require('dotenv');
 const cors = require('cors');
@@ -11,18 +10,19 @@ const xss = require('xss-clean');
 const rateLimit = require('express-rate-limit');
 const morgan = require('morgan');
 const cookieParser = require('cookie-parser');
- 
-// Load env vars FIRST
+const path = require('path'); // Added for path handling
+
+// Load env vars
 dotenv.config();
- 
+
 // Validate environment variables
 const validateEnv = require('./utils/validateEnv');
 validateEnv();
- 
+
 // Connect to database
 const connectDB = require('./config/db');
 connectDB();
- 
+
 // Route files
 const authRoutes = require('./routes/authRoutes');
 const productRoutes = require('./routes/productRoutes');
@@ -31,16 +31,17 @@ const orderRoutes = require('./routes/orderRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
 const bookingRoutes = require('./routes/bookingRoutes');
 const userRoutes = require('./routes/userRoutes');
- 
+const settingsRoutes = require('./routes/settingsRoutes'); // NEW: Settings routes
+
 // Middleware
 const errorHandler = require('./middleware/errorHandler');
 const responseMiddleware = require('./middleware/response');
 const requestLogger = require('./middleware/requestLogger');
- 
+
 // Initialize app
 const app = express();
- 
-// ─── 1. CORS — Explicitly allow Authorization header ─────────────────────────
+
+// ─── 1. CORS ─────────────────────────────────────────────────────────────────
 const corsOptions = {
   origin: [
     process.env.FRONTEND_URL,
@@ -51,45 +52,39 @@ const corsOptions = {
   ],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'], // FIX: Explicitly allow Authorization header
+  allowedHeaders: ['Content-Type', 'Authorization'],
   optionsSuccessStatus: 200
 };
 app.use(cors(corsOptions));
- 
-// ─── 2. Security middleware ──────────────────────────────────────────────────
+
+// ─── 2. Security & Parsers ───────────────────────────────────────────────────
 app.use(helmet());
 app.use(mongoSanitize());
 app.use(xss());
- 
-// ─── 3. Body parsers ─────────────────────────────────────────────────────────
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
- 
-// ─── 4. Logging & utility middleware ────────────────────────────────────────
+
+// Serve static files (Assuming your uploads folder is in the root)
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// ─── 3. Logging & Utility ────────────────────────────────────────────────────
 app.use(requestLogger);
 app.use(responseMiddleware);
- 
+
 if (process.env.NODE_ENV === 'development') {
   app.use(morgan('dev'));
 }
- 
-// ─── 5. Rate limiting ────────────────────────────────────────────────────────
+
+// ─── 4. Rate limiting ────────────────────────────────────────────────────────
 app.set('trust proxy', 1);
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 100
 });
 app.use('/api/', limiter);
- 
-// ─── 6. Mount all routes ─────────────────────────────────────────────────────
-app.use((req, res, next) => {
-  if (req.originalUrl.includes('/api/orders')) {
-    console.log(`[DEBUG] Orders Request: ${req.method} ${req.originalUrl}`);
-  }
-  next();
-});
 
+// ─── 5. Mount Routes ────────────────────────────────────────────────────────
 app.use('/uploads', require('./routes/uploadRoutes'));
 app.use('/api/users', userRoutes);
 app.use('/api/auth', authRoutes);
@@ -98,19 +93,20 @@ app.use('/api/categories', categoryRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/payment', paymentRoutes);
 app.use('/api/bookings', bookingRoutes);
- 
-// ─── 7. Health check & root routes ──────────────────────────────────────────
+app.use('/api/settings', settingsRoutes); // NEW: Mount settings
+
+// ─── 6. Health check & Root ──────────────────────────────────────────────────
 app.get('/api/health', (req, res) => {
   res.status(200).json({ success: true, message: 'Lulu Artistry API is running' });
 });
- 
+
 app.get('/', (req, res) => {
   res.json({ success: true, message: 'Welcome to Lulu Artistry API' });
 });
- 
-// ─── 8. Error handler ────────────────────────────────────────────────────────
+
+// ─── 7. Error handler ────────────────────────────────────────────────────────
 app.use(errorHandler);
- 
+
 // ─── Server startup ──────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
