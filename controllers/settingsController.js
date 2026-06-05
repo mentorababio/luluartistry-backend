@@ -5,17 +5,23 @@ const ErrorResponse = require('../utils/errorResponse');
 exports.getSettings = async (req, res, next) => {
   try {
     let settings = await Settings.findOne({ singleton: true });
-    if (!settings) settings = await Settings.create({ singleton: true });
+    if (!settings) {
+      settings = await Settings.create({ singleton: true });
+    }
     res.status(200).json({ success: true, data: settings });
   } catch (error) {
     next(error);
   }
 };
 
-// ── Update settings (Production-Grade Implementation) ────────────────────────
+// ── Update settings (Debug-Enabled) ──────────────────────────────────────────
 exports.updateSettings = async (req, res, next) => {
   try {
     const { section, data } = req.body;
+    
+    // Log incoming data to help us identify if the frontend is sending correctly
+    console.log(`[DEBUG] Update requested for section: ${section}`);
+    console.log(`[DEBUG] Data received: ${JSON.stringify(data)}`);
 
     if (!section || !data) {
       return next(new ErrorResponse('Section and data are required', 400));
@@ -26,18 +32,26 @@ exports.updateSettings = async (req, res, next) => {
       return next(new ErrorResponse(`Invalid section: ${section}`, 400));
     }
 
-    // Use findOneAndUpdate for atomic operations (avoids race conditions)
-    // We use $set to target the specific nested path directly in MongoDB
-    const updateQuery = {};
-    for (const [key, value] of Object.entries(data)) {
-      updateQuery[`${section}.${key}`] = value;
+    // Attempt to find the singleton document
+    let settings = await Settings.findOne({ singleton: true });
+    
+    if (!settings) {
+      console.log("[DEBUG] No settings found, creating new singleton...");
+      settings = await Settings.create({ singleton: true });
     }
 
-    const settings = await Settings.findOneAndUpdate(
-      { singleton: true },
-      { $set: updateQuery },
-      { new: true, upsert: true, runValidators: true }
-    );
+    // Apply the update
+    // Use .set() to ensure Mongoose detects path modifications
+    for (const [key, value] of Object.entries(data)) {
+      settings.set(`${section}.${key}`, value);
+    }
+
+    // Mark the nested section as modified for safety
+    settings.markModified(section);
+    
+    await settings.save();
+
+    console.log("[DEBUG] Save operation successful");
 
     res.status(200).json({
       success: true,
@@ -45,6 +59,7 @@ exports.updateSettings = async (req, res, next) => {
       data: settings
     });
   } catch (error) {
+    console.error("[DEBUG] Save operation failed:", error);
     next(error);
   }
 };
@@ -53,7 +68,9 @@ exports.updateSettings = async (req, res, next) => {
 exports.getPublicSettings = async (req, res, next) => {
   try {
     let settings = await Settings.findOne({ singleton: true });
-    if (!settings) settings = await Settings.create({ singleton: true });
+    if (!settings) {
+      settings = await Settings.create({ singleton: true });
+    }
     res.status(200).json({
       success: true,
       data: {
