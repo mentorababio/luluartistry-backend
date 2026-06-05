@@ -1,8 +1,7 @@
-// controllers/settingsController.js
 const Settings = require('../models/Settings');
 const ErrorResponse = require('../utils/errorResponse');
 
-// ── Get settings (or create default if none exist) 
+// ── Get settings ─────────────────────────────────────────────────────────────
 exports.getSettings = async (req, res, next) => {
   try {
     let settings = await Settings.findOne({ singleton: true });
@@ -15,7 +14,7 @@ exports.getSettings = async (req, res, next) => {
   }
 };
 
-// ── Update settings 
+// ── Update settings (Robust implementation) ──────────────────────────────────
 exports.updateSettings = async (req, res, next) => {
   try {
     const { section, data } = req.body;
@@ -34,12 +33,15 @@ exports.updateSettings = async (req, res, next) => {
       settings = await Settings.create({ singleton: true });
     }
 
-    // Update the nested object
-    settings[section] = { ...settings[section].toObject(), ...data };
-    
-    // CRITICAL: Explicitly mark the section as modified so Mongoose saves it
-    settings.markModified(section); 
-    
+    // 1. Explicitly set each field to trigger Mongoose change tracking
+    for (const [key, value] of Object.entries(data)) {
+      settings.set(`${section}.${key}`, value);
+    }
+
+    // 2. Explicitly mark the section as modified to ensure save triggers
+    settings.markModified(section);
+
+    // 3. Save to database
     await settings.save();
 
     res.status(200).json({
@@ -52,7 +54,7 @@ exports.updateSettings = async (req, res, next) => {
   }
 };
 
-// ── Public endpoint — get bank details for checkout 
+// ── Public endpoint ──────────────────────────────────────────────────────────
 exports.getPublicSettings = async (req, res, next) => {
   try {
     let settings = await Settings.findOne({ singleton: true });
