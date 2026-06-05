@@ -1,7 +1,8 @@
+// controllers/settingsController.js
 const Settings = require('../models/Settings');
 const ErrorResponse = require('../utils/errorResponse');
 
-// ── Get settings (or create default if none exist) ────────────────────────────
+// ── Get settings (or create default if none exist) 
 exports.getSettings = async (req, res, next) => {
   try {
     let settings = await Settings.findOne({ singleton: true });
@@ -14,7 +15,7 @@ exports.getSettings = async (req, res, next) => {
   }
 };
 
-// ── Update settings ───────────────────────────────────────────────────────────
+// ── Update settings 
 exports.updateSettings = async (req, res, next) => {
   try {
     const { section, data } = req.body;
@@ -33,8 +34,12 @@ exports.updateSettings = async (req, res, next) => {
       settings = await Settings.create({ singleton: true });
     }
 
-    // Update only the specified section
+    // Update the nested object
     settings[section] = { ...settings[section].toObject(), ...data };
+    
+    // CRITICAL: Explicitly mark the section as modified so Mongoose saves it
+    settings.markModified(section); 
+    
     await settings.save();
 
     res.status(200).json({
@@ -47,14 +52,13 @@ exports.updateSettings = async (req, res, next) => {
   }
 };
 
-// ── Public endpoint — get bank details for checkout ───────────────────────────
+// ── Public endpoint — get bank details for checkout 
 exports.getPublicSettings = async (req, res, next) => {
   try {
     let settings = await Settings.findOne({ singleton: true });
     if (!settings) {
       settings = await Settings.create({ singleton: true });
     }
-    // Only return bank details publicly
     res.status(200).json({
       success: true,
       data: {
