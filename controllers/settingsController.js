@@ -5,16 +5,14 @@ const ErrorResponse = require('../utils/errorResponse');
 exports.getSettings = async (req, res, next) => {
   try {
     let settings = await Settings.findOne({ singleton: true });
-    if (!settings) {
-      settings = await Settings.create({ singleton: true });
-    }
+    if (!settings) settings = await Settings.create({ singleton: true });
     res.status(200).json({ success: true, data: settings });
   } catch (error) {
     next(error);
   }
 };
 
-// ── Update settings (Robust implementation) ──────────────────────────────────
+// ── Update settings (Production-Grade Implementation) ────────────────────────
 exports.updateSettings = async (req, res, next) => {
   try {
     const { section, data } = req.body;
@@ -28,21 +26,18 @@ exports.updateSettings = async (req, res, next) => {
       return next(new ErrorResponse(`Invalid section: ${section}`, 400));
     }
 
-    let settings = await Settings.findOne({ singleton: true });
-    if (!settings) {
-      settings = await Settings.create({ singleton: true });
-    }
-
-    // 1. Explicitly set each field to trigger Mongoose change tracking
+    // Use findOneAndUpdate for atomic operations (avoids race conditions)
+    // We use $set to target the specific nested path directly in MongoDB
+    const updateQuery = {};
     for (const [key, value] of Object.entries(data)) {
-      settings.set(`${section}.${key}`, value);
+      updateQuery[`${section}.${key}`] = value;
     }
 
-    // 2. Explicitly mark the section as modified to ensure save triggers
-    settings.markModified(section);
-
-    // 3. Save to database
-    await settings.save();
+    const settings = await Settings.findOneAndUpdate(
+      { singleton: true },
+      { $set: updateQuery },
+      { new: true, upsert: true, runValidators: true }
+    );
 
     res.status(200).json({
       success: true,
@@ -58,9 +53,7 @@ exports.updateSettings = async (req, res, next) => {
 exports.getPublicSettings = async (req, res, next) => {
   try {
     let settings = await Settings.findOne({ singleton: true });
-    if (!settings) {
-      settings = await Settings.create({ singleton: true });
-    }
+    if (!settings) settings = await Settings.create({ singleton: true });
     res.status(200).json({
       success: true,
       data: {
