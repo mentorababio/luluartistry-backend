@@ -113,9 +113,6 @@ exports.getProduct = async (req, res, next) => {
 // @route   POST /api/products
 // @access  Private/Admin
 exports.createProduct = async (req, res, next) => {
-  console.log('🔍 req.body.images:', req.body.images);
-    console.log('🔍 req.body.image:', req.body.image);
-    console.log('🔍 Full req.body:', req.body);
   try {
     let uploadedImages = [];
 
