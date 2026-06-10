@@ -1,46 +1,58 @@
 const Product = require('../models/Product');
 const ErrorResponse = require('../utils/errorResponse');
 const cloudinary = require('../config/cloudinary');
+
+// ── Image helpers ─────────────────────────────────────────────────────────────
+const normalizeImage = (img) => {
+  if (!img) return null;
+  if (typeof img === 'string') return { url: img, alt: '' };
+  const url = img.url || img.secure_url || img.src;
+  return url ? { url, alt: img.alt || '' } : null;
+};
+
+const buildImages = (body) => {
+  let imagesArray = [];
+  if (Array.isArray(body.images)) {
+    imagesArray = body.images.map(normalizeImage).filter(Boolean);
+  } else if (typeof body.images === 'string') {
+    const normalized = normalizeImage(body.images);
+    if (normalized) imagesArray = [normalized];
+  }
+  if (imagesArray.length === 0 && body.image) {
+    const normalized = normalizeImage(body.image);
+    if (normalized) imagesArray = [normalized];
+  }
+  return imagesArray;
+};
+// ─────────────────────────────────────────────────────────────────────────────
+
 // @desc    Get all products
 // @route   GET /api/products
 // @access  Public
 exports.getProducts = async (req, res, next) => {
   try {
-    // Copy req.query
     const reqQuery = { ...req.query };
-
-    // Fields to exclude
     const removeFields = ['select', 'sort', 'page', 'limit', 'search'];
     removeFields.forEach(param => delete reqQuery[param]);
 
-    // Add isActive filter by default
     if (!req.user || req.user.role !== 'admin') {
       reqQuery.isActive = true;
     }
 
-    // Create query string
     let queryStr = JSON.stringify(reqQuery);
-
-    // Create operators ($gt, $gte, etc)
     queryStr = queryStr.replace(/\b(gt|gte|lt|lte|in)\b/g, match => `$${match}`);
 
-    // Finding resource
     let query = Product.find(JSON.parse(queryStr)).populate('category', 'name slug');
 
-    // Search by name, description, or tags
     if (req.query.search) {
-      query = query.find({
-        $text: { $search: req.query.search }
-      });
+      query = query.find({ $text: { $search: req.query.search } });
     }
 
-    // Select Fields
     if (req.query.select) {
       const fields = req.query.select.split(',').join(' ');
       query = query.select(fields);
     }
 
-    // Sort
     if (req.query.sort) {
       const sortBy = req.query.sort.split(',').join(' ');
       query = query.sort(sortBy);
@@ -48,7 +60,6 @@ exports.getProducts = async (req, res, next) => {
       query = query.sort('-createdAt');
     }
 
-    // Pagination
     const page = parseInt(req.query.page, 10) || 1;
     const limit = parseInt(req.query.limit, 10) || 12;
     const startIndex = (page - 1) * limit;
@@ -57,25 +68,11 @@ exports.getProducts = async (req, res, next) => {
 
     query = query.skip(startIndex).limit(limit);
 
-    // Executing query
     const products = await query;
 
-    // Pagination result
     const pagination = {};
-
-    if (endIndex < total) {
-      pagination.next = {
-        page: page + 1,
-        limit
-      };
-    }
-
-    if (startIndex > 0) {
-      pagination.prev = {
-        page: page - 1,
-        limit
-      };
-    }
+    if (endIndex < total) pagination.next = { page: page + 1, limit };
+    if (startIndex > 0) pagination.prev = { page: page - 1, limit };
 
     res.status(200).json({
       success: true,
@@ -99,25 +96,65 @@ exports.getProduct = async (req, res, next) => {
       .populate({
         path: 'reviews',
         select: 'rating comment user createdAt',
-        populate: {
-          path: 'user',
-          select: 'firstName lastName avatar'
-        }
+        populate: { path: 'user', select: 'firstName lastName avatar' }
       });
 
     if (!product) {
       return next(new ErrorResponse('Product not found', 404));
     }
 
-    res.status(200).json({
-      success: true,
-      data: product
-    });
+    res.status(200).json({ success: true, data: product });
   } catch (error) {
     next(error);
   }
 };
 
+// @desc    Create new product
+// @route   POST /api/products
+// @access  Private/Admin
+exports.createProduct = async (req, res, next) => {
+  console.log('🔍 req.body.images:', req.body.images);
+    console.log('🔍 req.body.image:', req.body.image);
+    console.log('🔍 Full req.body:', req.body);
+  try {
+    let uploadedImages = [];
+
+    // Priority 1: actual file uploads via Multer → upload to Cloudinary
+    if (req.files && req.files.length > 0) {
+      for (const file of req.files) {
+        const result = await cloudinary.uploader.upload(file.path, {
+          folder: 'luluartistry/products'
+        });
+        uploadedImages.push({ url: result.secure_url, publicId: result.public_id, alt: '' });
+      }
+    }
+
+    // Priority 2: image URLs/objects already in the request body
+    if (uploadedImages.length === 0) {
+      if (Array.isArray(req.body.images)) {
+        uploadedImages = req.body.images.filter(img => img && img.url);
+      } else if (req.body.image && typeof req.body.image === 'string') {
+        uploadedImages = [{ url: req.body.image, alt: '' }];
+      }
+    }
+
+    const { name, category, price, description, ...rest } = req.body;
+
+    const product = await Product.create({
+      name,
+      category,
+      price,
+      description,
+      ...rest,
+      images: uploadedImages,
+      isActive: true
+    });
+
+    res.status(201).json({ success: true, data: product });
+  } catch (error) {
+    next(error);
+  }
+};
 // @desc    Update product
 // @route   PUT /api/products/:id
 // @access  Private/Admin
@@ -129,23 +166,24 @@ exports.updateProduct = async (req, res, next) => {
       return next(new ErrorResponse('Product not found', 404));
     }
 
-    product = await Product.findByIdAndUpdate(req.params.id, req.body, {
+    const updates = { ...req.body };
+
+    // Only overwrite images if the request actually carries image data
+    const imagesArray = buildImages(req.body);
+    if (imagesArray.length > 0) updates.images = imagesArray;
+
+    product = await Product.findByIdAndUpdate(req.params.id, updates, {
       new: true,
       runValidators: true
     });
 
-    res.status(200).json({
-      success: true,
-      data: product
-    });
+    res.status(200).json({ success: true, data: product });
   } catch (error) {
     next(error);
   }
 };
 
-// ── REPLACE ONLY THESE TWO FUNCTIONS in your productController.js ─────────────
-
-// @desc    Delete product (HARD DELETE — actually removes from DB)
+// @desc    Delete product
 // @route   DELETE /api/products/:id
 // @access  Private/Admin
 exports.deleteProduct = async (req, res, next) => {
@@ -156,12 +194,8 @@ exports.deleteProduct = async (req, res, next) => {
       return next(new ErrorResponse('Product not found', 404));
     }
 
-    // ── FIX: hard delete so slug is freed and product can be re-added ────────
-    // Old code did: product.isActive = false — slug stayed, re-add failed
     await Product.findByIdAndDelete(req.params.id);
-    // ─────────────────────────────────────────────────────────────────────────
 
-    // Also delete images from Cloudinary
     if (product.images && product.images.length > 0) {
       for (const img of product.images) {
         if (img.publicId) {
@@ -171,46 +205,7 @@ exports.deleteProduct = async (req, res, next) => {
       }
     }
 
-    res.status(200).json({
-      success: true,
-      message: 'Product deleted successfully'
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
-// @desc    Create new product
-// @route   POST /api/products
-// @access  Private/Admin
-exports.createProduct = async (req, res, next) => {
-  try {
-    let uploadedImages = [];
-
-    // 1. Check if files exist (caught by the Multer middleware we added)
-    if (req.files && req.files.length > 0) {
-      for (const file of req.files) {
-        // 2. Upload the file to Cloudinary
-        const result = await cloudinary.uploader.upload(file.path, {
-          folder: 'luluartistry/products'
-        });
-        
-        // 3. Store the permanent URL and ID
-        uploadedImages.push({
-          url: result.secure_url,
-          publicId: result.public_id
-        });
-      }
-    }
-
-    // 4. Create the product with the REAL Cloudinary URLs
-    const product = await Product.create({
-      ...req.body,
-      images: uploadedImages, // Now using the permanent URLs
-      isActive: true
-    });
-
-    res.status(201).json({ success: true, data: product });
+    res.status(200).json({ success: true, message: 'Product deleted successfully' });
   } catch (error) {
     next(error);
   }
@@ -225,11 +220,7 @@ exports.getFeaturedProducts = async (req, res, next) => {
       .limit(8)
       .populate('category', 'name slug');
 
-    res.status(200).json({
-      success: true,
-      count: products.length,
-      data: products
-    });
+    res.status(200).json({ success: true, count: products.length, data: products });
   } catch (error) {
     next(error);
   }
@@ -240,23 +231,18 @@ exports.getFeaturedProducts = async (req, res, next) => {
 // @access  Public
 exports.getProductsByCategory = async (req, res, next) => {
   try {
-    const products = await Product.find({
-      category: req.params.categoryId,
-      isActive: true
-    }).populate('category', 'name slug');
+    const products = await Product.find({ category: req.params.categoryId, isActive: true })
+      .populate('category', 'name slug');
 
-    res.status(200).json({
-      success: true,
-      count: products.length,
-      data: products
-    });
+    res.status(200).json({ success: true, count: products.length, data: products });
   } catch (error) {
     next(error);
   }
 };
 
-
-
+// @desc    Delete a single product image
+// @route   DELETE /api/products/:id/images
+// @access  Private/Admin
 exports.deleteProductImage = async (req, res, next) => {
   try {
     const { publicId } = req.body;
@@ -271,20 +257,12 @@ exports.deleteProductImage = async (req, res, next) => {
       return next(new ErrorResponse('Product not found', 404));
     }
 
-    // Remove image from Cloudinary
     await cloudinary.uploader.destroy(publicId);
 
-    // Remove image from product.images array
-    product.images = product.images.filter(
-      img => img.publicId !== publicId
-    );
-
+    product.images = product.images.filter(img => img.publicId !== publicId);
     await product.save();
 
-    res.status(200).json({
-      success: true,
-      data: product.images
-    });
+    res.status(200).json({ success: true, data: product.images });
   } catch (error) {
     next(error);
   }

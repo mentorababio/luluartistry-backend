@@ -1,6 +1,0 @@
-{"ip":"::1","level":"info","message":"Request started","method":"GET","requestId":"fe92e6e3-96a5-4780-87d8-4134ca46241a","timestamp":"2026-05-26 21:14:10","url":"/api/health","userAgent":"Mozilla/5.0 (Windows NT; Windows NT 10.0; en-US) WindowsPowerShell/5.1.22000.65"}
-{"duration":"32ms","level":"info","message":"Request completed","method":"GET","requestId":"fe92e6e3-96a5-4780-87d8-4134ca46241a","statusCode":200,"timestamp":"2026-05-26 21:14:10","url":"/api/health"}
-{"ip":"::1","level":"info","message":"Request started","method":"GET","requestId":"4d81ae3a-6843-4ecf-a59a-f8e3d5ef2b35","timestamp":"2026-05-26 21:15:04","url":"/api/health","userAgent":"curl/7.55.1"}
-{"duration":"29ms","level":"info","message":"Request completed","method":"GET","requestId":"4d81ae3a-6843-4ecf-a59a-f8e3d5ef2b35","statusCode":200,"timestamp":"2026-05-26 21:15:04","url":"/api/health"}
-{"ip":"::1","level":"info","message":"Request started","method":"POST","requestId":"1015f267-b391-4c8d-8878-bce99f09e749","timestamp":"2026-05-26 21:25:11","url":"/api/orders","userAgent":"node"}
-{"duration":"17ms","level":"info","message":"Request completed","method":"POST","requestId":"1015f267-b391-4c8d-8878-bce99f09e749","statusCode":401,"timestamp":"2026-05-26 21:25:11","url":"/api/orders"}
