@@ -4,6 +4,29 @@ const { sendEmail } = require('../utils/sendEmail');
 const { welcomeEmail, passwordResetEmail } = require('../utils/emailTemplates');
 const crypto = require('crypto');
 const User = require('../models/User');
+const Order = require('../models/Order');
+
+// ── Link guest orders to this account by matching email ────────────────────
+// Whenever a user registers or logs in, find any orders placed as a guest
+// (no `user` field) using the same email, and attach them to this account.
+const linkGuestOrders = async (user) => {
+  try {
+    const result = await Order.updateMany(
+      {
+        user: { $exists: false },
+        'customerInfo.email': user.email
+      },
+      { $set: { user: user._id } }
+    );
+
+    if (result.modifiedCount > 0) {
+      console.log(`✅ Linked ${result.modifiedCount} guest order(s) to ${user.email}`);
+    }
+  } catch (error) {
+    console.error('Error linking guest orders:', error.message);
+  }
+};
+// ─────────────────────────────────────────────────────────────────────────
 
 // @desc    Register user
 // @route   POST /api/auth/register
@@ -23,6 +46,9 @@ exports.register = async (req, res, next) => {
       console.error('Welcome email failed:', err.message);
     }
 
+    // Link any guest orders placed with this email
+    await linkGuestOrders(user);
+
     sendTokenResponse(user, 201, res);
   } catch (error) {
     next(error);
@@ -36,6 +62,10 @@ exports.login = async (req, res, next) => {
   try {
     const { email, password } = req.body;
     const user = await UserService.authenticateUser(email, password);
+
+    // Link any guest orders placed with this email
+    await linkGuestOrders(user);
+
     sendTokenResponse(user, 200, res);
   } catch (error) {
     next(error);
