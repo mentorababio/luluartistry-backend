@@ -289,7 +289,10 @@ exports.addPaymentReference = async (req, res, next) => {
       return next(new ErrorResponse('Payment reference is required', 400));
     }
 
-    const order = await Order.findOne({ _id: req.params.id, user: req.user.id });
+    // Guest orders have no `user` field; logged-in users must own the order
+    const order = req.user
+      ? await Order.findOne({ _id: req.params.id, user: req.user.id })
+      : await Order.findOne({ _id: req.params.id, user: { $exists: false } });
 
     if (!order) {
       return next(new ErrorResponse('Order not found', 404));

@@ -12,16 +12,16 @@ const {
 } = require('../controllers/adminOrderController');
 
 const { initializePayment, confirmBankTransferPayment } = require('../controllers/paymentController');
-const { protect, authorize } = require('../middleware/auth');
+const { protect, authorize, optionalAuth } = require('../middleware/auth');
 
 /* =================================
    USER / CHECKOUT ROUTES
 ================================= */
 // Explicitly using /checkout to avoid conflicts with root /
-router.post('/checkout', protect, createOrder); 
+router.post('/checkout', optionalAuth, createOrder); 
 router.get('/my', protect, getMyOrders);
 router.get('/my/:id', protect, getMyOrder);
-router.patch('/my/:id/payment-reference', protect, addPaymentReference);
+router.patch('/my/:id/payment-reference', optionalAuth, addPaymentReference);
 
 /* =================================
    ADMIN ROUTES
@@ -37,7 +37,7 @@ router.get('/admin/:id', protect, authorize('admin'), getOrderDetailsAdmin);
 /* =================================
    PAYMENT ROUTES
 ================================= */
-router.post('/payment/initialize', protect, initializePayment);
+router.post('/payment/initialize', optionalAuth, initializePayment);
 router.put('/payment/confirm/:orderId', protect, authorize('admin'), confirmBankTransferPayment);
 
 /* =================================
