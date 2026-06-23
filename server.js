@@ -32,6 +32,7 @@ const paymentRoutes = require('./routes/paymentRoutes');
 const bookingRoutes = require('./routes/bookingRoutes');
 const userRoutes = require('./routes/userRoutes');
 const settingsRoutes = require('./routes/settingsRoutes'); // NEW: Settings routes
+const serviceRoutes = require('./routes/serviceRoutes');
 
 // Middleware
 const errorHandler = require('./middleware/errorHandler');
@@ -94,6 +95,7 @@ app.use('/api/orders', orderRoutes);
 app.use('/api/payment', paymentRoutes);
 app.use('/api/bookings', bookingRoutes);
 app.use('/api/settings', settingsRoutes); // NEW: Mount settings
+app.use('/api/services', serviceRoutes);
 
 // ─── 6. Health check & Root ──────────────────────────────────────────────────
 app.get('/api/health', (req, res) => {
