@@ -51,7 +51,7 @@ const BookingSchema = new mongoose.Schema(
     artist: {
       type: {
         type: String,
-        enum: ['lulu', 'senior', 'artist'],
+        enum: ['lulu', 'senior', 'artist', 'sarah', 'maya'],
         required: true,
       },
       name: String,
