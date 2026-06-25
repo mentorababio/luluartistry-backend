@@ -321,3 +321,119 @@ exports.getAllBookings = async (req, res, next) => {
     next(error);
   }
 };
+// @desc    Create guest booking (no auth required)
+// @route   POST /api/bookings/guest
+// @access  Public
+exports.createGuestBooking = async (req, res, next) => {
+  try {
+    const {
+      service,
+      artist,
+      location,
+      appointmentDate,
+      timeSlot,
+      notes,
+      customerInfo,
+      pricing,
+      payment
+    } = req.body;
+
+    if (!customerInfo?.firstName || !customerInfo?.email || !customerInfo?.phone) {
+      return next(new ErrorResponse('Customer info (firstName, email, phone) is required', 400));
+    }
+
+    // Try to find service by name since frontend sends name not ID
+    let serviceDoc = null;
+    let servicePrice = pricing?.servicePrice || 0;
+    let depositAmount = pricing?.depositAmount || Math.round(servicePrice * 0.5);
+    let balanceAmount = pricing?.balanceAmount || servicePrice - depositAmount;
+    let serviceSnapshot = { name: service, description: '', duration: 120 };
+
+    try {
+      // Try finding by ID first, then by name
+      const mongoose = require('mongoose');
+      if (mongoose.Types.ObjectId.isValid(service)) {
+        serviceDoc = await Service.findById(service);
+      }
+      if (!serviceDoc) {
+        serviceDoc = await Service.findOne({ name: { $regex: new RegExp(service, 'i') } });
+      }
+      if (serviceDoc) {
+        serviceSnapshot = {
+          name: serviceDoc.name,
+          description: serviceDoc.description,
+          duration: serviceDoc.duration
+        };
+        // Use DB pricing if available
+        const artistPricing = serviceDoc.pricing?.find(p => p.artistType === artist?.type);
+        if (artistPricing) {
+          servicePrice = artistPricing.price;
+          depositAmount = Math.round(servicePrice * 0.5);
+          balanceAmount = servicePrice - depositAmount;
+        }
+      }
+    } catch (e) {
+      // Service lookup failed — use frontend-provided pricing
+    }
+
+    // Check for conflicting bookings
+    const conflict = await Booking.findOne({
+      appointmentDate: new Date(appointmentDate),
+      location,
+      'artist.type': artist?.type,
+      'timeSlot.start': timeSlot?.start,
+      status: { $in: ['pending', 'confirmed'] }
+    });
+
+    if (conflict) {
+      return next(new ErrorResponse('This time slot is already booked', 400));
+    }
+
+    const booking = await Booking.create({
+      customerInfo: {
+        firstName: customerInfo.firstName,
+        lastName: customerInfo.lastName || customerInfo.firstName,
+        email: customerInfo.email,
+        phone: customerInfo.phone
+      },
+      service: serviceDoc?._id || undefined,
+      serviceSnapshot,
+      artist: artist || { type: 'lulu', name: 'Lulu' },
+      location,
+      appointmentDate,
+      timeSlot,
+      pricing: {
+        servicePrice,
+        depositAmount,
+        balanceAmount
+      },
+      payment: {
+        depositPaid: payment?.depositPaid || false,
+        balancePaid: payment?.balancePaid || false,
+        paymentMethod: payment?.paymentMethod || 'pending'
+      },
+      notes: {
+        customerNotes: notes || ''
+      },
+      status: 'pending'
+    });
+
+    // Send confirmation email
+    try {
+      await sendEmail({
+        email: customerInfo.email,
+        subject: 'Booking Confirmed - Lulu Artistry',
+        html: bookingConfirmationEmail(booking)
+      });
+    } catch (err) {
+      console.error('Guest booking email failed:', err.message);
+    }
+
+    res.status(201).json({
+      success: true,
+      data: booking
+    });
+  } catch (error) {
+    next(error);
+  }
+};

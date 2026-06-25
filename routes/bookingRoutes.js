@@ -6,6 +6,7 @@ const {
   updateBookingStatus,
   cancelBooking,
   getAvailability,
+  createGuestBooking,
   getAllBookings
 } = require('../controllers/bookingController');
 const { protect, authorize } = require('../middleware/auth');
@@ -19,6 +20,7 @@ router.get('/availability', getAvailability);
 // ADMIN ROUTES (SPECIFIC PATTERNS)
 // Get all bookings (Admin only)
 router.get('/admin/all', protect, authorize('admin'), getAllBookings);
+router.post('/guest', createGuestBooking); 
 
 // USER ROUTES
 // Get user bookings & Create new booking
