@@ -389,7 +389,15 @@ exports.createGuestBooking = async (req, res, next) => {
       return next(new ErrorResponse('This time slot is already booked', 400));
     }
 
-    const booking = await Booking.create({
+   // Generate booking number manually as fallback
+const date = new Date();
+const year = date.getFullYear();
+const month = String(date.getMonth() + 1).padStart(2, '0');
+const count = await Booking.countDocuments() + 1;
+const bookingNumber = `BK-${year}${month}-${String(count).padStart(4, '0')}`;
+
+const booking = await Booking.create({
+      bookingNumber,
       customerInfo: {
         firstName: customerInfo.firstName,
         lastName: customerInfo.lastName || customerInfo.firstName,
