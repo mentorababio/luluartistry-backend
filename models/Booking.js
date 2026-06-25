@@ -6,10 +6,10 @@ const BookingSchema = new mongoose.Schema({
     unique: true,
     required: true
   },
-  customer: {
+ customer: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    required: true
+    required: false
   },
   customerInfo: {
     firstName: String,
@@ -17,10 +17,10 @@ const BookingSchema = new mongoose.Schema({
     email: String,
     phone: String
   },
-  service: {
+service: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Service',
-    required: [true, 'Please select a service']
+    required: false
   },
   serviceSnapshot: {
     name: String,
@@ -35,9 +35,9 @@ const BookingSchema = new mongoose.Schema({
     },
     name: String
   },
-  location: {
+ location: {
     type: String,
-    enum: ['calabar', 'port-harcourt'],
+    enum: ['calabar', 'port-harcourt', 'studio', 'home', 'mobile'],
     required: [true, 'Please select a location']
   },
   appointmentDate: {
@@ -81,9 +81,9 @@ const BookingSchema = new mongoose.Schema({
     },
     balancePaymentId: String,
     balancePaidAt: Date,
-    paymentMethod: {
+   paymentMethod: {
       type: String,
-      enum: ['paystack', 'cash', 'transfer']
+      enum: ['paystack', 'cash', 'transfer', 'pending']
     }
   },
   status: {
