@@ -207,3 +207,36 @@ exports.getAvailability = async (req, res, next) => {
     next(error);
   }
 };
+// PATCH /api/bookings/:id/payment-reference
+// Public — guest and authenticated customers
+exports.submitPaymentReference = async (req, res, next) => {
+  try {
+    const { reference } = req.body;
+
+    if (!reference || !reference.trim()) {
+      return next(new ErrorResponse('Transfer reference is required', 400));
+    }
+
+    const booking = await Booking.findById(req.params.id);
+    if (!booking) {
+      return next(new ErrorResponse('Booking not found', 404));
+    }
+
+    booking.notes = booking.notes || {};
+    booking.notes.customerNotes = booking.notes.customerNotes
+      ? `${booking.notes.customerNotes} | Transfer Ref: ${reference.trim()}`
+      : `Transfer Ref: ${reference.trim()}`;
+
+    booking.payment.depositPaymentId = reference.trim();
+
+    await booking.save();
+
+    res.status(200).json({
+      success: true,
+      message: 'Payment reference submitted successfully',
+      data: { bookingNumber: booking.bookingNumber, reference: reference.trim() }
+    });
+  } catch (error) {
+    next(error);
+  }
+};

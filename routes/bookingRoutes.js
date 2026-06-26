@@ -17,6 +17,7 @@ const {
   updateBookingStatus,
   cancelBooking,
   getAvailability,
+  submitPaymentReference,
   getAllBookings,
 } = require('../controllers/bookingController');
 
@@ -41,6 +42,8 @@ router.get('/admin/all', protect, authorize('admin', 'manager', 'staff'), getAll
 router.route('/')
   .get(protect, getBookings)
   .post(protect, createBooking);
+
+  router.patch('/:id/payment-reference', submitPaymentReference);
 
 // PUT before GET /:id to avoid conflicts
 router.put('/:id/status', protect, authorize('admin', 'manager', 'staff'), updateBookingStatus);
