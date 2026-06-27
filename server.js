@@ -10,7 +10,7 @@ const xss = require('xss-clean');
 const rateLimit = require('express-rate-limit');
 const morgan = require('morgan');
 const cookieParser = require('cookie-parser');
-const path = require('path'); // Added for path handling
+const path = require('path');
 
 // Load env vars
 dotenv.config();
@@ -31,7 +31,7 @@ const orderRoutes = require('./routes/orderRoutes');
 const paymentRoutes = require('./routes/paymentRoutes');
 const bookingRoutes = require('./routes/bookingRoutes');
 const userRoutes = require('./routes/userRoutes');
-const settingsRoutes = require('./routes/settingsRoutes'); // NEW: Settings routes
+const settingsRoutes = require('./routes/settingsRoutes');
 const serviceRoutes = require('./routes/serviceRoutes');
 
 // Middleware
@@ -66,7 +66,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
-// Serve static files (Assuming your uploads folder is in the root)
+// Serve static files
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // ─── 3. Logging & Utility ────────────────────────────────────────────────────
@@ -77,15 +77,19 @@ if (process.env.NODE_ENV === 'development') {
   app.use(morgan('dev'));
 }
 
-// ─── 4. Rate limiting ────────────────────────────────────────────────────────
+// ─── 4. Rate Limiting ────────────────────────────────────────────────────────
 app.set('trust proxy', 1);
+
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 100
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 200,                  // 200 requests per IP per 15 mins
+  message: { success: false, error: 'Too many requests, please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
 });
 app.use('/api/', limiter);
 
-// ─── 5. Mount Routes ────────────────────────────────────────────────────────
+// ─── 5. Mount Routes ─────────────────────────────────────────────────────────
 app.use('/uploads', require('./routes/uploadRoutes'));
 app.use('/api/users', userRoutes);
 app.use('/api/auth', authRoutes);
@@ -94,10 +98,10 @@ app.use('/api/categories', categoryRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/payment', paymentRoutes);
 app.use('/api/bookings', bookingRoutes);
-app.use('/api/settings', settingsRoutes); // NEW: Mount settings
+app.use('/api/settings', settingsRoutes);
 app.use('/api/services', serviceRoutes);
 
-// ─── 6. Health check & Root ──────────────────────────────────────────────────
+// ─── 6. Health Check & Root ──────────────────────────────────────────────────
 app.get('/api/health', (req, res) => {
   res.status(200).json({ success: true, message: 'Lulu Artistry API is running' });
 });
@@ -106,10 +110,10 @@ app.get('/', (req, res) => {
   res.json({ success: true, message: 'Welcome to Lulu Artistry API' });
 });
 
-// ─── 7. Error handler ────────────────────────────────────────────────────────
+// ─── 7. Error Handler ────────────────────────────────────────────────────────
 app.use(errorHandler);
 
-// ─── Server startup ──────────────────────────────────────────────────────────
+// ─── Server Startup ──────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
