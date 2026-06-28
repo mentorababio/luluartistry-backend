@@ -240,3 +240,145 @@ exports.submitPaymentReference = async (req, res, next) => {
     next(error);
   }
 };
+// ─────────────────────────────────────────────────────────────────────────────
+// ADD THESE FUNCTIONS TO bookingController.js
+// ─────────────────────────────────────────────────────────────────────────────
+
+const Booking = require('../models/Booking');
+const ErrorResponse = require('../utils/errorResponse');
+
+// ---------------------------------------------------------------------------
+// POST /api/bookings/:id/reschedule
+// Customer requests a reschedule — public (works for guests too)
+// ---------------------------------------------------------------------------
+exports.requestReschedule = async (req, res, next) => {
+  try {
+    const { requestedDate, requestedTime, reason } = req.body;
+
+    if (!requestedDate || !requestedTime) {
+      return next(new ErrorResponse('Please provide a new date and time', 400));
+    }
+
+    const booking = await Booking.findById(req.params.id);
+    if (!booking) {
+      return next(new ErrorResponse('Booking not found', 404));
+    }
+
+    // Don't allow reschedule on completed or cancelled bookings
+    if (['completed', 'cancelled', 'no-show'].includes(booking.status)) {
+      return next(new ErrorResponse(`Cannot reschedule a ${booking.status} booking`, 400));
+    }
+
+    // Don't allow a new reschedule if one is already pending
+    if (booking.rescheduleRequest?.status === 'pending') {
+      return next(new ErrorResponse('You already have a pending reschedule request', 400));
+    }
+
+    booking.rescheduleRequest = {
+      requestedDate: new Date(requestedDate),
+      requestedTime,
+      reason:        reason || '',
+      status:        'pending',
+      requestedAt:   new Date(),
+    };
+
+    await booking.save();
+
+    console.log(`[Reschedule] Request saved for booking ${booking.bookingNumber}`);
+
+    res.status(200).json({
+      success: true,
+      message: 'Reschedule request submitted. We will contact you to confirm.',
+      data:    { bookingNumber: booking.bookingNumber, rescheduleRequest: booking.rescheduleRequest },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ---------------------------------------------------------------------------
+// PUT /api/bookings/:id/reschedule/respond
+// Admin approves or rejects a reschedule request
+// ---------------------------------------------------------------------------
+exports.respondToReschedule = async (req, res, next) => {
+  try {
+    const { status, adminResponse } = req.body; // status: 'approved' | 'rejected'
+
+    if (!['approved', 'rejected'].includes(status)) {
+      return next(new ErrorResponse('Status must be approved or rejected', 400));
+    }
+
+    const booking = await Booking.findById(req.params.id);
+    if (!booking) {
+      return next(new ErrorResponse('Booking not found', 404));
+    }
+
+    if (!booking.rescheduleRequest || booking.rescheduleRequest.status !== 'pending') {
+      return next(new ErrorResponse('No pending reschedule request found', 400));
+    }
+
+    booking.rescheduleRequest.status       = status;
+    booking.rescheduleRequest.respondedAt  = new Date();
+    booking.rescheduleRequest.adminResponse = adminResponse || '';
+
+    // If approved — update the actual appointment date and time
+    if (status === 'approved') {
+      booking.appointmentDate    = booking.rescheduleRequest.requestedDate;
+      booking.timeSlot.start     = booking.rescheduleRequest.requestedTime;
+      // Recalculate end time (add 2 hours as default)
+      const [h, m] = booking.rescheduleRequest.requestedTime.split(':').map(Number);
+      const endH   = (h + 2) % 24;
+      booking.timeSlot.end = `${String(endH).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+    }
+
+    await booking.save();
+
+    res.status(200).json({
+      success: true,
+      message: `Reschedule ${status}`,
+      data:    booking,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ---------------------------------------------------------------------------
+// GET /api/bookings/track?bookingNumber=BK-xxx&phone=080xxx
+// Guest booking lookup — public, no auth required
+// ---------------------------------------------------------------------------
+exports.trackBooking = async (req, res, next) => {
+  try {
+    const { bookingNumber, phone } = req.query;
+
+    if (!bookingNumber || !phone) {
+      return next(new ErrorResponse('Please provide booking number and phone number', 400));
+    }
+
+    const booking = await Booking.findOne({
+      bookingNumber: bookingNumber.trim().toUpperCase(),
+      'customerInfo.phone': { $regex: phone.trim().replace(/\s/g, ''), $options: 'i' },
+    });
+
+    if (!booking) {
+      return next(new ErrorResponse('Booking not found. Please check your reference and phone number.', 404));
+    }
+
+    res.status(200).json({
+      success: true,
+      data:    booking,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+
+const { requestReschedule, respondToReschedule, trackBooking } = require('../controllers/bookingController');
+
+// Public routes (add before /:id wildcard)
+router.get('/track', trackBooking);
+router.post('/:id/reschedule', requestReschedule);
+
+// Admin only
+router.put('/:id/reschedule/respond', protect, authorize('admin', 'manager', 'staff'), respondToReschedule);

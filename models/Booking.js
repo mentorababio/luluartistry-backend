@@ -1,14 +1,3 @@
-/**
- * models/Booking.js
- * -----------------
- * Changes from original:
- * - customer: required → false (supports guest bookings)
- * - service: required → false (supports name-only bookings when ID not in DB)
- * - location enum expanded to include studio/home/mobile (frontend values)
- * - payment.paymentMethod: no longer required, undefined allowed
- * - bookingNumber pre-save hook kept as safety net but service generates it explicitly
- */
-
 const mongoose = require('mongoose');
 
 const BookingSchema = new mongoose.Schema(
@@ -19,7 +8,6 @@ const BookingSchema = new mongoose.Schema(
       required: true,
     },
 
-    // Null for guest bookings
     customer: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
@@ -29,12 +17,11 @@ const BookingSchema = new mongoose.Schema(
 
     customerInfo: {
       firstName: { type: String, required: true },
-      lastName: { type: String, required: true },
+      lastName:  { type: String, required: true },
       email:     { type: String, required: true },
       phone:     { type: String, required: true },
     },
 
-    // Optional — may not exist in DB if service was added from frontend only
     service: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Service',
@@ -45,7 +32,7 @@ const BookingSchema = new mongoose.Schema(
     serviceSnapshot: {
       name:        { type: String, required: true },
       description: String,
-      duration:    { type: Number, default: 120 }, // minutes
+      duration:    { type: Number, default: 120 },
     },
 
     artist: {
@@ -57,7 +44,6 @@ const BookingSchema = new mongoose.Schema(
       name: String,
     },
 
-    // Expanded to include frontend location values
     location: {
       type: String,
       enum: ['calabar', 'port-harcourt', 'studio', 'home', 'mobile'],
@@ -70,8 +56,8 @@ const BookingSchema = new mongoose.Schema(
     },
 
     timeSlot: {
-      start: { type: String, required: true }, // "HH:MM" 24-hour
-      end:   { type: String, required: true }, // calculated by service
+      start: { type: String, required: true },
+      end:   { type: String, required: true },
     },
 
     pricing: {
@@ -87,7 +73,6 @@ const BookingSchema = new mongoose.Schema(
       balancePaid:      { type: Boolean, default: false },
       balancePaymentId: String,
       balancePaidAt:    Date,
-      // Not required — guest bookings may not have payment method yet
       paymentMethod: {
         type: String,
         enum: ['paystack', 'cash', 'transfer'],
@@ -105,6 +90,23 @@ const BookingSchema = new mongoose.Schema(
       customerNotes: String,
       adminNotes:    String,
     },
+
+    // ── Reschedule Request ────────────────────────────────────────────────────
+    // Customer requests a new date/time. Admin approves or rejects.
+    rescheduleRequest: {
+      requestedDate: { type: Date },
+      requestedTime: { type: String },
+      reason:        { type: String },
+      status: {
+        type: String,
+        enum: ['pending', 'approved', 'rejected'],
+        default: 'pending',
+      },
+      requestedAt:  { type: Date },
+      respondedAt:  { type: Date },
+      adminResponse: { type: String },
+    },
+    // ─────────────────────────────────────────────────────────────────────────
 
     cancellation: {
       isCancelled:  { type: Boolean, default: false },
@@ -135,14 +137,11 @@ const BookingSchema = new mongoose.Schema(
   }
 );
 
-// ---------------------------------------------------------------------------
-// Pre-save hook: generate bookingNumber as a safety net
-// The service generates it explicitly; this only runs if somehow missed.
-// ---------------------------------------------------------------------------
+// Pre-save hook: generate bookingNumber as safety net
 BookingSchema.pre('save', async function (next) {
   if (this.isNew && !this.bookingNumber) {
-    const date = new Date();
-    const year = date.getFullYear();
+    const date  = new Date();
+    const year  = date.getFullYear();
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const count = (await this.constructor.countDocuments()) + 1;
     this.bookingNumber = `BK-${year}${month}-${String(count).padStart(4, '0')}`;
@@ -150,9 +149,6 @@ BookingSchema.pre('save', async function (next) {
   next();
 });
 
-// ---------------------------------------------------------------------------
-// Virtuals
-// ---------------------------------------------------------------------------
 BookingSchema.virtual('isFullyPaid').get(function () {
   return this.payment.depositPaid && this.payment.balancePaid;
 });
@@ -161,11 +157,10 @@ BookingSchema.virtual('isUpcoming').get(function () {
   return this.appointmentDate > new Date() && this.status === 'confirmed';
 });
 
-// ---------------------------------------------------------------------------
-// Indexes
-// ---------------------------------------------------------------------------
 BookingSchema.index({ customer: 1, appointmentDate: -1 });
 BookingSchema.index({ appointmentDate: 1, location: 1, 'artist.type': 1 });
 BookingSchema.index({ status: 1, appointmentDate: 1 });
+BookingSchema.index({ 'customerInfo.phone': 1 });
+BookingSchema.index({ bookingNumber: 1 });
 
 module.exports = mongoose.model('Booking', BookingSchema);

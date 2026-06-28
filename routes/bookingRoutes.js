@@ -1,11 +1,5 @@
 /**
  * routes/bookings.js
- * ------------------
- * Route order matters in Express — specific paths must come before :id wildcards.
- *
- * Public routes:   /availability, /guest
- * Admin routes:    /admin/all
- * Auth routes:     /, /:id, /:id/status, /:id/cancel
  */
 
 const express = require('express');
@@ -19,6 +13,9 @@ const {
   getAvailability,
   submitPaymentReference,
   getAllBookings,
+  requestReschedule,
+  respondToReschedule,
+  trackBooking,
 } = require('../controllers/bookingController');
 
 const { protect, authorize } = require('../middleware/auth');
@@ -30,11 +27,15 @@ const router = express.Router();
 // ---------------------------------------------------------------------------
 router.get('/availability', getAvailability);
 router.post('/guest', createGuestBooking);
+router.get('/track', trackBooking);                          // guest booking lookup
+router.patch('/:id/payment-reference', submitPaymentReference);
+router.post('/:id/reschedule', requestReschedule);           // customer reschedule request
 
 // ---------------------------------------------------------------------------
 // ADMIN ROUTES (must be before /:id to avoid route conflicts)
 // ---------------------------------------------------------------------------
 router.get('/admin/all', protect, authorize('admin', 'manager', 'staff'), getAllBookings);
+router.put('/:id/reschedule/respond', protect, authorize('admin', 'manager', 'staff'), respondToReschedule);
 
 // ---------------------------------------------------------------------------
 // AUTHENTICATED USER ROUTES
@@ -43,9 +44,6 @@ router.route('/')
   .get(protect, getBookings)
   .post(protect, createBooking);
 
-  router.patch('/:id/payment-reference', submitPaymentReference);
-
-// PUT before GET /:id to avoid conflicts
 router.put('/:id/status', protect, authorize('admin', 'manager', 'staff'), updateBookingStatus);
 router.put('/:id/cancel', protect, cancelBooking);
 router.get('/:id', protect, getBooking);
