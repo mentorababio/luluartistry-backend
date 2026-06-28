@@ -68,6 +68,7 @@ const corsOptions = {
   allowedHeaders: ['Content-Type', 'Authorization'],
   optionsSuccessStatus: 200
 };
+app.use(cors(corsOptions));
 // ─── 2. Security & Parsers ───────────────────────────────────────────────────
 app.use(helmet());
 app.use(mongoSanitize());
