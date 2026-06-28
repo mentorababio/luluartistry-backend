@@ -44,20 +44,30 @@ const app = express();
 
 // ─── 1. CORS ─────────────────────────────────────────────────────────────────
 const corsOptions = {
-  origin: [
-    process.env.FRONTEND_URL,
-    'https://luluartistry.store',
-    'https://www.luluartistry.store',
-    'https://luluartistry-ltd.vercel.app',
-    'http://localhost:3000'
-  ],
+  origin: function(origin, callback) {
+    if (!origin) return callback(null, true);
+    
+    const allowedOrigins = [
+      'https://luluartistry.store',
+      'https://www.luluartistry.store',
+      'https://luluartistry-ltd.vercel.app',
+      'https://lulu-artistry-azure.vercel.app',
+      'http://localhost:3000',
+      process.env.FRONTEND_URL,
+    ].filter(Boolean);
+
+    if (allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      console.warn(`[CORS] Blocked origin: ${origin}`);
+      callback(new Error(`Origin ${origin} not allowed by CORS`));
+    }
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   optionsSuccessStatus: 200
 };
-app.use(cors(corsOptions));
-
 // ─── 2. Security & Parsers ───────────────────────────────────────────────────
 app.use(helmet());
 app.use(mongoSanitize());
