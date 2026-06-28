@@ -10,8 +10,8 @@
  */
 
 const { createBookingService } = require('../services/bookingService');
-const Booking = require('../models/Booking');
-const ErrorResponse = require('../utils/errorResponse');
+
+
 
 // ---------------------------------------------------------------------------
 // POST /api/bookings
@@ -374,11 +374,4 @@ exports.trackBooking = async (req, res, next) => {
 };
 
 
-const { requestReschedule, respondToReschedule, trackBooking } = require('../controllers/bookingController');
-
-// Public routes (add before /:id wildcard)
-router.get('/track', trackBooking);
-router.post('/:id/reschedule', requestReschedule);
-
-// Admin only
-router.put('/:id/reschedule/respond', protect, authorize('admin', 'manager', 'staff'), respondToReschedule);
+const { requestReschedule, respondToReschedule, trackBooking } = require('../controllers/bookingController')
