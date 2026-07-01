@@ -161,7 +161,7 @@ const bookingReminderEmail = (booking) => {
       <strong>Service:</strong> ${booking.serviceSnapshot.name}<br>
       <strong>Date:</strong> ${new Date(booking.appointmentDate).toLocaleDateString()}<br>
       <strong>Time:</strong> ${booking.timeSlot.start}<br>
-      <strong>Location:</strong> ${booking.location === 'calabar' ? 'Calabar Studio' : 'Port Harcourt Studio'}
+      <strong>Location:</strong> ${booking.location === 'calabar' ? 'Calabar Studio' : 'home service'}
     </div>
     <p><strong>Important:</strong></p>
     <ul>
