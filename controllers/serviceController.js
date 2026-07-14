@@ -7,7 +7,10 @@ const ErrorResponse = require('../utils/errorResponse');
 exports.getServices = async (req, res, next) => {
   try {
     const { category } = req.query;
-    const query = { isActive: true };
+   const query: any = {};
+if (req.query.admin !== 'true') {
+  query.isActive = true;
+}
     if (category) query.category = category;
 
     const services = await Service.find(query).sort('displayOrder');
