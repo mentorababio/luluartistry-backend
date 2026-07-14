@@ -7,7 +7,7 @@ const ErrorResponse = require('../utils/errorResponse');
 exports.getServices = async (req, res, next) => {
   try {
     const { category } = req.query;
-   const query: any = {};
+   const query = {};
 if (req.query.admin !== 'true') {
   query.isActive = true;
 }
