@@ -46,7 +46,7 @@ const BookingSchema = new mongoose.Schema(
 
     location: {
       type: String,
-      enum: ['calabar', 'port-harcourt', 'studio', 'home service', 'mobile'],
+      enum: ['calabar', 'port-harcourt', 'studio', 'home-service', 'mobile'],
       required: [true, 'Please select a location'],
     },
 
