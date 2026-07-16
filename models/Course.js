@@ -79,7 +79,7 @@ const CourseSchema = new mongoose.Schema({
   },
   location: {
     type: String,
-    enum: ['calabar', 'port-harcourt', 'both'],
+    enum: ['calabar', 'port-harcourt', 'home service', 'both'],
     default: 'both'
   },
   isActive: {

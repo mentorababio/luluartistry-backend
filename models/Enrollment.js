@@ -36,7 +36,7 @@ const EnrollmentSchema = new mongoose.Schema({
   },
   location: {
     type: String,
-    enum: ['calabar', 'port-harcourt'],
+    enum: ['calabar', 'home service'],
     required: [true, 'Please select a location']
   },
   payment: {

@@ -105,7 +105,7 @@ exports.bookingConfirmationEmail = (booking) => baseTemplate(`
     <strong>Artist:</strong> ${booking.artist.name || 'Lulu'}<br>
     <strong>Date:</strong> ${new Date(booking.appointmentDate).toLocaleDateString()}<br>
     <strong>Time:</strong> ${booking.timeSlot.start}<br>
-    <strong>Location:</strong> ${booking.location === 'calabar' ? 'Calabar Studio' : 'Port Harcourt Studio'}
+    <strong>Location:</strong> ${booking.location === 'calabar' ? 'Calabar Studio' : 'home service'}
   </div>
   <p><strong>Please Note:</strong> ${booking.serviceSnapshot.description}</p>
   <a href="${process.env.FRONTEND_URL}/bookings/${booking.bookingNumber}" class="button">View Booking Details</a>
