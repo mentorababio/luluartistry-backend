@@ -88,7 +88,7 @@ exports.createOrder = async (req, res, next) => {
 
     if (
       ![
-        'pack',
+        'park',
         'gig',
         'intentional',
         'pickup'

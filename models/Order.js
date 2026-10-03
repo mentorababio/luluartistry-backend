@@ -105,7 +105,7 @@ const OrderSchema = new mongoose.Schema({
   deliveryMethod: {
     type: String,
     enum: [
-      'pack',
+      'park',
       'gig',
       'intentional',
       'pickup'
